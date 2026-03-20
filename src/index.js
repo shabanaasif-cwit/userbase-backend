@@ -1,25 +1,38 @@
 import "dotenv/config";
-import express from "express";
-import cors from "cors";
+import { env } from "./config/env.js";
+import { connectMongo, disconnectMongo } from "./db/connect.js";
+import { createApp } from "./app.js";
 
-const app = express();
-const PORT = process.env.PORT ?? 3001;
+let server;
+let shuttingDown = false;
 
-app.use(cors());
-app.use(express.json());
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`Received ${signal}, closing...`);
+  await new Promise((resolve) => {
+    if (server) {
+      server.close(() => resolve());
+    } else {
+      resolve();
+    }
+  });
+  await disconnectMongo().catch((err) => console.error("Mongo disconnect:", err));
+  process.exit(0);
+}
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "userbase-backend" });
-});
+async function main() {
+  await connectMongo();
+  const app = createApp();
+  server = app.listen(env.PORT, () => {
+    console.log(`Server listening on http://localhost:${env.PORT}`);
+  });
 
-app.get("/", (_req, res) => {
-  res.json({ message: "userbase-backend API" });
-});
+  process.once("SIGINT", () => void shutdown("SIGINT"));
+  process.once("SIGTERM", () => void shutdown("SIGTERM"));
+}
 
-app.use((_req, res) => {
-  res.status(404).json({ error: "Not found" });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+main().catch((err) => {
+  console.error("Failed to start:", err);
+  process.exit(1);
 });
