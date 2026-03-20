@@ -2,10 +2,12 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import { apiReference } from "@scalar/express-api-reference";
 import authRoutes from "./routes/auth.routes.js";
 import routes from "./routes/index.js";
 import { env } from "./config/env.js";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler.js";
+import { openApiSpec } from "./docs/openapi.js";
 
 export function createApp() {
   const app = express();
@@ -17,6 +19,14 @@ export function createApp() {
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+        },
+      },
     })
   );
   app.use(
@@ -28,6 +38,16 @@ export function createApp() {
   app.use(express.json());
   app.use(cookieParser());
 
+  app.get("/openapi.json", (_req, res) => {
+    res.json(openApiSpec);
+  });
+  app.use(
+    "/docs",
+    apiReference({
+      spec: { content: openApiSpec },
+    })
+  );
+
   app.use("/api/auth", authRoutes);
   app.use(routes);
 
@@ -36,3 +56,4 @@ export function createApp() {
 
   return app;
 }
+

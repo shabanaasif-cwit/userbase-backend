@@ -52,8 +52,22 @@ npm start     # production-style run
 
 - `GET /` — API info
 - `GET /health` — liveness; returns **503** if MongoDB is not connected (`db` field in JSON)
+- `GET /openapi.json` — OpenAPI spec used by Scalar
+- `GET /docs` — Scalar interactive API reference
 - `POST /api/auth/signup` — body `{ email, password }` → `{ user, accessToken }` + sets refresh cookie
 - `POST /api/auth/login` — body `{ email, password }` → `{ user, accessToken }` + sets refresh cookie
 - `POST /api/auth/refresh` — uses refresh cookie → new `{ user, accessToken }` + rotated refresh cookie
 - `POST /api/auth/logout` — revokes refresh session (if cookie present), clears cookie → **204**
 - `GET /api/auth/me` — header `Authorization: Bearer <accessToken>` → `{ user }`
+
+## Testing flow (Scalar or manual)
+
+1. Start server with `npm run dev`.
+2. Open `http://localhost:3001/docs`.
+3. Run `POST /api/auth/signup` (or `POST /api/auth/login`) with JSON body:
+   - `{ "email": "you@example.com", "password": "Password123!" }`
+4. Copy `accessToken` from the response.
+5. Run `GET /api/auth/me` with header:
+   - `Authorization: Bearer <accessToken>`
+6. Run `POST /api/auth/refresh` (uses refresh cookie set by login/signup).
+7. Run `POST /api/auth/logout`, then call `POST /api/auth/refresh` again (should return `401`).
