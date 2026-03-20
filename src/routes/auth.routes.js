@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { verifyJwt } from "../middleware/verifyJwt.js";
 import * as authService from "../services/authService.js";
+import { AppError } from "../utils/AppError.js";
 import {
   REFRESH_COOKIE_NAME,
   refreshCookieOptions,
@@ -9,6 +10,10 @@ import {
 } from "../utils/authCookies.js";
 
 const router = Router();
+const methodNotAllowed = (allowed) => (req, res, next) => {
+  res.set("Allow", allowed);
+  next(new AppError(405, `Method ${req.method} not allowed for ${req.path}`));
+};
 
 router.post(
   "/signup",
@@ -20,6 +25,7 @@ router.post(
     res.status(201).json({ user, accessToken });
   })
 );
+router.all("/signup", methodNotAllowed("POST"));
 
 router.post(
   "/login",
@@ -31,6 +37,7 @@ router.post(
     res.json({ user, accessToken });
   })
 );
+router.all("/login", methodNotAllowed("POST"));
 
 router.post(
   "/refresh",
@@ -42,6 +49,7 @@ router.post(
     res.json({ user, accessToken });
   })
 );
+router.all("/refresh", methodNotAllowed("POST"));
 
 router.post(
   "/logout",
@@ -52,6 +60,7 @@ router.post(
     res.status(204).send();
   })
 );
+router.all("/logout", methodNotAllowed("POST"));
 
 router.get(
   "/me",
@@ -61,5 +70,6 @@ router.get(
     res.json({ user });
   })
 );
+router.all("/me", methodNotAllowed("GET"));
 
 export default router;
