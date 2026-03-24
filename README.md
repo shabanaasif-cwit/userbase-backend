@@ -40,10 +40,13 @@ npm start     # production-style run
 | `src/middleware/asyncHandler.js` | Async route wrapper |
 | `src/routes/index.js` | Public HTTP routes |
 | `src/routes/auth.routes.js` | Auth routes under `/api/auth` |
+| `src/routes/users.routes.js` | Admin user-management routes under `/api/users` |
 | `src/services/authService.js` | Signup, login, refresh rotation, logout |
+| `src/services/userAdminService.js` | Admin list/filter/search/update/deactivate user logic |
 | `src/utils/jwt.js` | Sign / verify access & refresh JWTs |
 | `src/utils/authCookies.js` | httpOnly refresh cookie options (`path: /api/auth`) |
 | `src/middleware/verifyJwt.js` | Bearer access JWT → `req.user.userId`, `req.user.role` |
+| `src/middleware/requireRole.js` | Role check middleware (e.g. admin-only routes) |
 | `src/models/RefreshToken.js` | Stored refresh sessions (`jti`, revoke, TTL index) |
 
 **Auth:** Access JWT in **`Authorization: Bearer`**. Refresh JWT in **`refreshToken` httpOnly cookie** (`Secure` in production, `SameSite=lax`, path `/api/auth`). Clients must use `fetch(..., { credentials: 'include' })` for `/api/auth/*` so the cookie is sent.
@@ -59,6 +62,9 @@ npm start     # production-style run
 - `POST /api/auth/refresh` — uses refresh cookie → new `{ user, accessToken }` + rotated refresh cookie
 - `POST /api/auth/logout` — revokes refresh session (if cookie present), clears cookie → **204**
 - `GET /api/auth/me` — header `Authorization: Bearer <accessToken>` → `{ user }`
+- `GET /api/users` — admin-only list/filter/search users (`page`, `limit`, `role`, `accountStatus`, `search`)
+- `PATCH /api/users/:userId` — admin-only update user `email`, `role`, or `accountStatus`
+- `PATCH /api/users/:userId/deactivate` — admin-only deactivate user account
 
 ## Testing flow (Scalar or manual)
 

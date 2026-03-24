@@ -1,11 +1,12 @@
-﻿import { env } from "../config/env.js";
+import { env } from "../config/env.js";
 
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "userbase-backend API",
     version: "1.0.0",
-    description: "Authentication and health endpoints for userbase-backend.",
+    description:
+      "Authentication, user management (admin), and health endpoints for userbase-backend.",
   },
   servers: [
     {
@@ -13,10 +14,7 @@ export const openApiSpec = {
       description: "Local development",
     },
   ],
-  tags: [
-    { name: "System" },
-    { name: "Auth" },
-  ],
+  tags: [{ name: "System" }, { name: "Auth" }, { name: "Users" }],
   components: {
     securitySchemes: {
       bearerAuth: {
@@ -36,17 +34,60 @@ export const openApiSpec = {
         type: "object",
         properties: {
           id: { type: "string", example: "65f1f8c1dd1f8a2e9fcd1234" },
-          email: { type: "string", format: "email", example: "user@example.com" },
+          email: {
+            type: "string",
+            format: "email",
+            example: "user@example.com",
+          },
           role: { type: "string", enum: ["user", "admin"] },
           accountStatus: { type: "string", enum: ["active", "deactivated"] },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      UsersListResponse: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: { $ref: "#/components/schemas/User" },
+          },
+          meta: {
+            type: "object",
+            properties: {
+              total: { type: "number", example: 20 },
+              page: { type: "number", example: 1 },
+              limit: { type: "number", example: 10 },
+              totalPages: { type: "number", example: 2 },
+            },
+          },
+        },
+      },
+      UserResponse: {
+        type: "object",
+        properties: {
+          user: { $ref: "#/components/schemas/User" },
         },
       },
       AuthBody: {
         type: "object",
-        required: ["email", "password"],
+        required: ["email", "password", "role"],
         properties: {
-          email: { type: "string", format: "email", example: "user@example.com" },
-          password: { type: "string", minLength: 8, example: "Password123!" },
+          email: {
+            type: "string",
+            format: "email",
+            example: "user@example.com",
+          },
+          password: {
+            type: "string",
+            minLength: 8,
+            example: "Password123!",
+          },
+          role: {
+            type: "string",
+            enum: ["user", "admin"],
+            example: "user",
+          },
         },
       },
       AuthSuccess: {
@@ -70,6 +111,14 @@ export const openApiSpec = {
           db: { type: "string", example: "connected" },
         },
       },
+      UpdateUserBody: {
+        type: "object",
+        properties: {
+          email: { type: "string", format: "email", example: "updated@example.com" },
+          role: { type: "string", enum: ["user", "admin"] },
+          accountStatus: { type: "string", enum: ["active", "deactivated"] },
+        },
+      },
     },
   },
   paths: {
@@ -85,7 +134,10 @@ export const openApiSpec = {
                 schema: {
                   type: "object",
                   properties: {
-                    message: { type: "string", example: "userbase-backend API" },
+                    message: {
+                      type: "string",
+                      example: "userbase-backend API",
+                    },
                   },
                 },
               },
@@ -145,8 +197,22 @@ export const openApiSpec = {
               },
             },
           },
-          400: { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
-          409: { description: "Email already exists", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          409: {
+            description: "Email already exists",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
         },
       },
     },
@@ -171,8 +237,22 @@ export const openApiSpec = {
               },
             },
           },
-          401: { description: "Invalid credentials", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
-          403: { description: "Account deactivated", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          401: {
+            description: "Invalid credentials",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          403: {
+            description: "Account deactivated",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
         },
       },
     },
@@ -189,7 +269,14 @@ export const openApiSpec = {
               },
             },
           },
-          401: { description: "Refresh token missing/invalid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          401: {
+            description: "Refresh token missing/invalid",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
         },
       },
     },
@@ -216,7 +303,100 @@ export const openApiSpec = {
               },
             },
           },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/users": {
+      get: {
+        tags: ["Users"],
+        summary: "Admin: list/filter/search users",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "page", in: "query", schema: { type: "number", default: 1 } },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "number", default: 10, maximum: 100 },
+          },
+          { name: "role", in: "query", schema: { type: "string", enum: ["user", "admin"] } },
+          {
+            name: "accountStatus",
+            in: "query",
+            schema: { type: "string", enum: ["active", "deactivated"] },
+          },
+          { name: "search", in: "query", schema: { type: "string" } },
+        ],
+        responses: {
+          200: {
+            description: "Users list",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/UsersListResponse" },
+              },
+            },
+          },
           401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden (admin only)", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
+    "/api/users/{userId}": {
+      patch: {
+        tags: ["Users"],
+        summary: "Admin: update user role/status/email",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "userId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateUserBody" },
+            },
+          },
+        },
+        responses: {
+          200: { description: "User updated", content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } } },
+          400: { description: "Invalid request", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          404: { description: "User not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          409: { description: "Email conflict", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
+    "/api/users/{userId}/deactivate": {
+      patch: {
+        tags: ["Users"],
+        summary: "Admin: deactivate user account",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "userId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          200: { description: "User deactivated", content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } } },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          404: { description: "User not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
         },
       },
     },

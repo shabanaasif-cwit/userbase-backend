@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema(
+const adminUserSchema = new mongoose.Schema(
   {
     email: {
       type: String,
@@ -9,15 +9,14 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    /** Set when auth module wires bcrypt; null allowed for migration/seeds. */
     passwordHash: {
       type: String,
-      default: null,
+      required: true,
     },
     role: {
       type: String,
-      enum: ["user"],
-      default: "user",
+      enum: ["admin"],
+      default: "admin",
     },
     accountStatus: {
       type: String,
@@ -28,4 +27,4 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export const User = mongoose.model("User", userSchema);
+export const AdminUser = mongoose.model("AdminUser", adminUserSchema);
