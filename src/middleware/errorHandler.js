@@ -10,6 +10,12 @@ export function errorHandler(err, _req, res, _next) {
 
   if (err instanceof mongoose.Error.CastError) {
     e = new AppError(400, "Invalid id");
+  } else if (
+    err instanceof SyntaxError &&
+    err.status === 400 &&
+    "body" in err
+  ) {
+    e = new AppError(400, "Invalid JSON");
   } else if (err.code === 11000) {
     e = new AppError(409, "Duplicate entry");
   }
