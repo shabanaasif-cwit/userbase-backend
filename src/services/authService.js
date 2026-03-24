@@ -74,20 +74,27 @@ export async function signup(body) {
   }
 
   let userDoc;
-  userDoc =
-    role === "admin"
-      ? await AdminUser.create({
-          email,
-          passwordHash,
-          role: "admin",
-          accountStatus: "active",
-        })
-      : await User.create({
-          email,
-          passwordHash,
-          role: "user",
-          accountStatus: "active",
-        });
+  try {
+    userDoc =
+      role === "admin"
+        ? await AdminUser.create({
+            email,
+            passwordHash,
+            role: "admin",
+            accountStatus: "active",
+          })
+        : await User.create({
+            email,
+            passwordHash,
+            role: "user",
+            accountStatus: "active",
+          });
+  } catch (err) {
+    if (err?.code === 11000) {
+      throw new AppError(409, "Email already registered");
+    }
+    throw err;
+  }
   return issueSession(userDoc);
 }
 

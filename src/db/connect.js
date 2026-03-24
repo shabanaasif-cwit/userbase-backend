@@ -1,9 +1,18 @@
 import mongoose from "mongoose";
 import { env } from "../config/env.js";
+import { AdminUser } from "../models/AdminUser.js";
+import { RefreshToken } from "../models/RefreshToken.js";
+import { User } from "../models/User.js";
 
 export async function connectMongo() {
   mongoose.set("strictQuery", true);
   await mongoose.connect(env.MONGODB_URI);
+  // Keep DB indexes aligned with schemas (drops stale/incorrect unique indexes).
+  await Promise.all([
+    User.syncIndexes(),
+    AdminUser.syncIndexes(),
+    RefreshToken.syncIndexes(),
+  ]);
 }
 
 export async function disconnectMongo() {
