@@ -69,7 +69,33 @@ export const openApiSpec = {
           user: { $ref: "#/components/schemas/User" },
         },
       },
-      AuthBody: {
+      SignupBody: {
+        type: "object",
+        required: ["email", "password", "confirmPassword", "role"],
+        properties: {
+          email: {
+            type: "string",
+            format: "email",
+            example: "user@example.com",
+          },
+          password: {
+            type: "string",
+            minLength: 8,
+            example: "Password123!",
+          },
+          confirmPassword: {
+            type: "string",
+            minLength: 8,
+            example: "Password123!",
+          },
+          role: {
+            type: "string",
+            enum: ["user", "admin"],
+            example: "user",
+          },
+        },
+      },
+      LoginBody: {
         type: "object",
         required: ["email", "password", "role"],
         properties: {
@@ -178,7 +204,7 @@ export const openApiSpec = {
           required: true,
           content: {
             "application/json": {
-              schema: { $ref: "#/components/schemas/AuthBody" },
+              schema: { $ref: "#/components/schemas/SignupBody" },
             },
           },
         },
@@ -224,7 +250,7 @@ export const openApiSpec = {
           required: true,
           content: {
             "application/json": {
-              schema: { $ref: "#/components/schemas/AuthBody" },
+              schema: { $ref: "#/components/schemas/LoginBody" },
             },
           },
         },
