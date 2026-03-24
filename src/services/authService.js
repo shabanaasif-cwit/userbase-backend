@@ -14,6 +14,10 @@ import {
 const SALT_ROUNDS = 12;
 const MIN_PASSWORD_LENGTH = 8;
 const ALLOWED_ROLES = ["user", "admin"];
+const HAS_WHITESPACE = /\s/;
+const HAS_BACKTICK = /`/;
+const HAS_NUMBER = /\d/;
+const HAS_SPECIAL = /[^A-Za-z0-9]/;
 
 function sanitizeUser(user) {
   return {
@@ -48,9 +52,16 @@ async function issueSession(user) {
 export async function signup(body) {
   const email = String(body?.email ?? "").trim().toLowerCase();
   const password = body?.password;
+  const confirmPassword = body?.confirmPassword;
   const role = body?.role;
   if (!email || !password) {
     throw new AppError(400, "Email and password required");
+  }
+  if (!confirmPassword) {
+    throw new AppError(400, "Confirm password is required");
+  }
+  if (password !== confirmPassword) {
+    throw new AppError(400, "Password and confirm password must match");
   }
   if (!role) {
     throw new AppError(400, "Role is required");
@@ -62,6 +73,18 @@ export async function signup(body) {
     throw new AppError(
       400,
       `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
+    );
+  }
+  if (HAS_WHITESPACE.test(password)) {
+    throw new AppError(400, "Password must not contain spaces");
+  }
+  if (HAS_BACKTICK.test(password)) {
+    throw new AppError(400, "Password must not contain backticks (`)");
+  }
+  if (!HAS_NUMBER.test(password) || !HAS_SPECIAL.test(password)) {
+    throw new AppError(
+      400,
+      "Password must include at least one number and one special character"
     );
   }
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -110,6 +133,18 @@ export async function login(body) {
   }
   if (!ALLOWED_ROLES.includes(role)) {
     throw new AppError(400, "Role must be user or admin");
+  }
+  if (typeof password !== "string" || HAS_WHITESPACE.test(password)) {
+    throw new AppError(400, "Password must not contain spaces");
+  }
+  if (HAS_BACKTICK.test(password)) {
+    throw new AppError(400, "Password must not contain backticks (`)");
+  }
+  if (!HAS_NUMBER.test(password) || !HAS_SPECIAL.test(password)) {
+    throw new AppError(
+      400,
+      "Password must include at least one number and one special character"
+    );
   }
   const user =
     role === "admin"

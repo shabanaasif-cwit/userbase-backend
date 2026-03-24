@@ -57,8 +57,8 @@ npm start     # production-style run
 - `GET /health` — liveness; returns **503** if MongoDB is not connected (`db` field in JSON)
 - `GET /openapi.json` — OpenAPI spec used by Scalar
 - `GET /docs` — Scalar interactive API reference
-- `POST /api/auth/signup` — body `{ email, password }` → `{ user, accessToken }` + sets refresh cookie
-- `POST /api/auth/login` — body `{ email, password }` → `{ user, accessToken }` + sets refresh cookie
+- `POST /api/auth/signup` — body `{ email, password, confirmPassword, role }` → `{ user, accessToken }` + sets refresh cookie
+- `POST /api/auth/login` — body `{ email, password, role }` → `{ user, accessToken }` + sets refresh cookie
 - `POST /api/auth/refresh` — uses refresh cookie → new `{ user, accessToken }` + rotated refresh cookie
 - `POST /api/auth/logout` — revokes refresh session (if cookie present), clears cookie → **204**
 - `GET /api/auth/me` — header `Authorization: Bearer <accessToken>` → `{ user }`
@@ -70,10 +70,12 @@ npm start     # production-style run
 
 1. Start server with `npm run dev`.
 2. Open `http://localhost:3001/docs`.
-3. Run `POST /api/auth/signup` (or `POST /api/auth/login`) with JSON body:
-   - `{ "email": "you@example.com", "password": "Password123!" }`
-4. Copy `accessToken` from the response.
-5. Run `GET /api/auth/me` with header:
+3. Run `POST /api/auth/signup` with JSON body:
+   - `{ "email": "you@example.com", "password": "Password1@", "confirmPassword": "Password1@", "role": "user" }`
+4. Or run `POST /api/auth/login` with JSON body:
+   - `{ "email": "you@example.com", "password": "Password1@", "role": "user" }`
+5. Copy `accessToken` from the response.
+6. Run `GET /api/auth/me` with header:
    - `Authorization: Bearer <accessToken>`
-6. Run `POST /api/auth/refresh` (uses refresh cookie set by login/signup).
-7. Run `POST /api/auth/logout`, then call `POST /api/auth/refresh` again (should return `401`).
+7. Run `POST /api/auth/refresh` (uses refresh cookie set by login/signup).
+8. Run `POST /api/auth/logout`, then call `POST /api/auth/refresh` again (should return `401`).
