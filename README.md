@@ -27,6 +27,35 @@ npm run dev   # dev with auto-reload (Node --watch)
 npm start     # production-style run
 ```
 
+## Automated tests
+
+Uses [Vitest](https://vitest.dev/), [Supertest](https://github.com/ladjs/supertest), and an in-memory MongoDB ([mongodb-memory-server](https://github.com/nodkz/mongodb-memory-server)). No separate MongoDB process is required for `npm test`.
+
+```bash
+npm test        # single run
+npm test:watch  # watch mode
+```
+
+Coverage includes auth (signup, login, `/me`), RBAC (`403` on admin routes for non-admins), admin user listing, notification payload validation, notification admin/user flows (create → list → mark read → `read` query), and consistent **400** responses for malformed JSON.
+
+## Error responses
+
+All operational errors use a single JSON shape:
+
+```json
+{ "error": "Human-readable message" }
+```
+
+Examples:
+
+- **400** — validation (e.g. weak password on signup, invalid notification payload, invalid Mongo id cast to **400** `Invalid id`), or **malformed JSON** body → `{ "error": "Invalid JSON" }`.
+- **401** — missing/invalid access JWT, bad login credentials, etc.
+- **403** — wrong role for the route (admin-only) → `{ "error": "Forbidden (admin only)" }`; deactivated account messages use their own `error` text.
+- **404** — missing resource where applicable.
+- **405** — wrong HTTP method (includes `Allow` header).
+
+Full path-level response lists and request schemas live in **`GET /openapi.json`** and **`GET /docs`** (Scalar); keep the README endpoint list in sync when you add or change routes.
+
 ## Project layout
 
 | Path | Role |
@@ -40,14 +69,20 @@ npm start     # production-style run
 | `src/middleware/asyncHandler.js` | Async route wrapper |
 | `src/routes/index.js` | Public HTTP routes |
 | `src/routes/auth.routes.js` | Auth routes under `/api/auth` |
+| `src/routes/notifications.routes.js` | Notification routes under `/api/notifications` |
 | `src/routes/users.routes.js` | Admin user-management routes under `/api/users` |
 | `src/services/authService.js` | Signup, login, refresh rotation, logout |
+| `src/services/notificationService.js` | Notification create/list/update/delete/read logic |
+| `src/validation/notificationPayload.js` | Create/update notification JSON validation (`AppError` 400) |
 | `src/services/userAdminService.js` | Admin list/filter/search/update/deactivate user logic |
 | `src/utils/jwt.js` | Sign / verify access & refresh JWTs |
 | `src/utils/authCookies.js` | httpOnly refresh cookie options (`path: /api/auth`) |
 | `src/middleware/verifyJwt.js` | Bearer access JWT → `req.user.userId`, `req.user.role` |
 | `src/middleware/requireRole.js` | Role check middleware (e.g. admin-only routes) |
 | `src/models/RefreshToken.js` | Stored refresh sessions (`jti`, revoke, TTL index) |
+| `src/docs/openapi.js` | OpenAPI 3 spec (`/openapi.json`, Scalar `/docs`) |
+| `test/http.integration.test.js` | HTTP integration: auth, RBAC, users, notifications |
+| `test/notificationPayload.test.js` | Unit tests for notification payload validation |
 
 **Auth:** Access JWT in **`Authorization: Bearer`**. Refresh JWT in **`refreshToken` httpOnly cookie** (`Secure` in production, `SameSite=lax`, path `/api/auth`). Clients must use `fetch(..., { credentials: 'include' })` for `/api/auth/*` so the cookie is sent.
 
@@ -62,6 +97,11 @@ npm start     # production-style run
 - `POST /api/auth/refresh` — uses refresh cookie → new `{ user, accessToken }` + rotated refresh cookie
 - `POST /api/auth/logout` — revokes refresh session (if cookie present), clears cookie → **204**
 - `GET /api/auth/me` — header `Authorization: Bearer <accessToken>` → `{ user }`
+- `GET /api/notifications` — authenticated list (users see own, admins see broader). Query: `page`, `limit`, `search`, `read` (`true`|`false`, non-admin read filter)
+- `POST /api/notifications` — admin-only; JSON body matches OpenAPI **`CreateNotificationBody`**: `title`, `body`, `targetType` (`users`|`role`), plus `targetUsers` (Mongo id strings) or `targetRoles` (`user`|`admin`) per `targetType`
+- `PATCH /api/notifications/:notificationId` — admin-only partial update; body matches OpenAPI **`UpdateNotificationBody`** (at least one field; changing `targetType` re-resolves recipients like create)
+- `DELETE /api/notifications/:notificationId` — admin-only delete → **204**
+- `PATCH /api/notifications/:notificationId/read` — recipient marks their copy read (must be in `recipients`)
 - `GET /api/users` — admin-only list/filter/search users (`page`, `limit`, `role`, `accountStatus`, `search`)
 - `PATCH /api/users/:userId` — admin-only update user `email`, `role`, or `accountStatus`
 - `PATCH /api/users/:userId/deactivate` — admin-only deactivate user account

@@ -6,7 +6,7 @@ export const openApiSpec = {
     title: "userbase-backend API",
     version: "1.0.0",
     description:
-      "Authentication, user management (admin), and health endpoints for userbase-backend.",
+      "Authentication, user management (admin), notifications (admin broadcast + user list/read), and health endpoints for userbase-backend. Error responses are JSON objects `{ \"error\": string }`. Malformed JSON bodies return **400** with `error: \"Invalid JSON\"`. Admin-only routes return **403** with `error: \"Forbidden (admin only)\"` when the JWT role is insufficient.",
   },
   servers: [
     {
@@ -14,7 +14,12 @@ export const openApiSpec = {
       description: "Local development",
     },
   ],
-  tags: [{ name: "System" }, { name: "Auth" }, { name: "Users" }],
+  tags: [
+    { name: "System" },
+    { name: "Auth" },
+    { name: "Users" },
+    { name: "Notifications" },
+  ],
   components: {
     securitySchemes: {
       bearerAuth: {
@@ -145,6 +150,95 @@ export const openApiSpec = {
           accountStatus: { type: "string", enum: ["active", "deactivated"] },
         },
       },
+      Notification: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          body: { type: "string" },
+          targetType: { type: "string", enum: ["users", "role"] },
+          targetUsers: { type: "array", items: { type: "string" } },
+          targetRoles: {
+            type: "array",
+            items: { type: "string", enum: ["user", "admin"] },
+          },
+          recipientsCount: { type: "number" },
+          myRead: { type: "boolean" },
+          myReadAt: { type: "string", format: "date-time", nullable: true },
+          createdBy: {
+            type: "object",
+            properties: {
+              userId: { type: "string" },
+              role: { type: "string", enum: ["admin"] },
+            },
+          },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      NotificationResponse: {
+        type: "object",
+        properties: {
+          notification: { $ref: "#/components/schemas/Notification" },
+        },
+      },
+      NotificationsListResponse: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: { $ref: "#/components/schemas/Notification" },
+          },
+          meta: {
+            type: "object",
+            properties: {
+              total: { type: "number" },
+              page: { type: "number" },
+              limit: { type: "number" },
+              totalPages: { type: "number" },
+            },
+          },
+        },
+      },
+      CreateNotificationBody: {
+        type: "object",
+        required: ["title", "body", "targetType"],
+        properties: {
+          title: { type: "string", example: "Maintenance Notice" },
+          body: { type: "string", example: "System will be down at 10 PM." },
+          targetType: { type: "string", enum: ["users", "role"] },
+          targetUsers: {
+            type: "array",
+            items: { type: "string" },
+            description: "Required when targetType=users",
+          },
+          targetRoles: {
+            type: "array",
+            items: { type: "string", enum: ["user", "admin"] },
+            description: "Required when targetType=role",
+          },
+        },
+      },
+      UpdateNotificationBody: {
+        type: "object",
+        description:
+          "Partial update. Send at least one field; changing targetType re-resolves recipients (same rules as create). Empty title/body strings are rejected.",
+        properties: {
+          title: { type: "string", example: "Updated title" },
+          body: { type: "string", example: "Updated message." },
+          targetType: { type: "string", enum: ["users", "role"] },
+          targetUsers: {
+            type: "array",
+            items: { type: "string" },
+            description: "Required when setting targetType=users",
+          },
+          targetRoles: {
+            type: "array",
+            items: { type: "string", enum: ["user", "admin"] },
+            description: "Required when setting targetType=role",
+          },
+        },
+      },
     },
   },
   paths: {
@@ -224,7 +318,8 @@ export const openApiSpec = {
             },
           },
           400: {
-            description: "Validation error",
+            description:
+              "Validation error or malformed JSON body (`error`: `Invalid JSON`)",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -260,6 +355,15 @@ export const openApiSpec = {
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/AuthSuccess" },
+              },
+            },
+          },
+          400: {
+            description:
+              "Validation error or malformed JSON body (`error`: `Invalid JSON`)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
               },
             },
           },
@@ -340,6 +444,130 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/notifications": {
+      get: {
+        tags: ["Notifications"],
+        summary: "List notifications for current user (admin can view broader)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "page", in: "query", schema: { type: "number", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "number", default: 10 } },
+          { name: "search", in: "query", schema: { type: "string" } },
+          {
+            name: "read",
+            in: "query",
+            schema: { type: "string", enum: ["true", "false"] },
+            description: "For non-admin users: filter by read state",
+          },
+        ],
+        responses: {
+          200: {
+            description: "Notifications list",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/NotificationsListResponse" },
+              },
+            },
+          },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+      post: {
+        tags: ["Notifications"],
+        summary: "Admin: create notification",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateNotificationBody" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/NotificationResponse" },
+              },
+            },
+          },
+          400: { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden (admin only)", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
+    "/api/notifications/{notificationId}": {
+      patch: {
+        tags: ["Notifications"],
+        summary: "Admin: update notification",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "notificationId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateNotificationBody" },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/NotificationResponse" } } } },
+          400: { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden (admin only)", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          404: { description: "Notification not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+      delete: {
+        tags: ["Notifications"],
+        summary: "Admin: delete notification",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "notificationId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          204: { description: "Deleted" },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden (admin only)", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          404: { description: "Notification not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
+    "/api/notifications/{notificationId}/read": {
+      patch: {
+        tags: ["Notifications"],
+        summary: "Mark current user's notification as read",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "notificationId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          200: { description: "Marked as read", content: { "application/json": { schema: { $ref: "#/components/schemas/NotificationResponse" } } } },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          404: { description: "Notification not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
     "/api/users": {
       get: {
         tags: ["Users"],
@@ -399,7 +627,7 @@ export const openApiSpec = {
           200: { description: "User updated", content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } } },
           400: { description: "Invalid request", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
           401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
-          403: { description: "Forbidden", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden (admin only)", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
           404: { description: "User not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
           409: { description: "Email conflict", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
         },
@@ -421,7 +649,7 @@ export const openApiSpec = {
         responses: {
           200: { description: "User deactivated", content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } } },
           401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
-          403: { description: "Forbidden", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden (admin only)", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
           404: { description: "User not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
         },
       },

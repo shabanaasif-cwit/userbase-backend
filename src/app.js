@@ -4,6 +4,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { apiReference } from "@scalar/express-api-reference";
 import authRoutes from "./routes/auth.routes.js";
+import notificationsRoutes from "./routes/notifications.routes.js";
 import usersRoutes from "./routes/users.routes.js";
 import routes from "./routes/index.js";
 import { env } from "./config/env.js";
@@ -50,6 +51,7 @@ export function createApp() {
   );
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/notifications", notificationsRoutes);
   app.use("/api/users", usersRoutes);
   app.use(routes);
 
