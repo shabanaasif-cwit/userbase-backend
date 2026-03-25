@@ -221,6 +221,52 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     expect(listRead.body.items.some((n) => n.id === notificationId)).toBe(true);
   });
 
+  it("notifications: admin can send reminder for an existing notification", async () => {
+    const userSignup = await request(app).post("/api/auth/signup").send({
+      email: "notif-remind-user@test.com",
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(userSignup.status).toBe(201);
+    const userId = userSignup.body.user.id;
+    const userToken = userSignup.body.accessToken;
+
+    const adminSignup = await request(app).post("/api/auth/signup").send({
+      email: "notif-remind-admin@test.com",
+      password,
+      confirmPassword: password,
+      role: "admin",
+    });
+    expect(adminSignup.status).toBe(201);
+    const adminToken = adminSignup.body.accessToken;
+
+    const created = await request(app)
+      .post("/api/notifications")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Original",
+        body: "Original body",
+        targetType: "users",
+        targetUsers: [userId],
+      });
+    expect(created.status).toBe(201);
+    const originalId = created.body.notification.id;
+
+    const reminded = await request(app)
+      .post(`/api/notifications/${originalId}/remind`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: "Reminder", body: "Please read" });
+    expect(reminded.status).toBe(201);
+    expect(reminded.body.reminder.notificationId).toBe(originalId);
+
+    const list = await request(app)
+      .get("/api/reminders")
+      .set("Authorization", `Bearer ${userToken}`);
+    expect(list.status).toBe(200);
+    expect(list.body.items.some((r) => r.notificationId === originalId)).toBe(true);
+  });
+
   it("notifications: user cannot patch admin update endpoint", async () => {
     const userSignup = await request(app).post("/api/auth/signup").send({
       email: "notif-patch-user@test.com",

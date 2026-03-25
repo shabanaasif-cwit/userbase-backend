@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { env } from "../config/env.js";
 import { AdminUser } from "../models/AdminUser.js";
 import { Notification } from "../models/Notification.js";
+import { Reminder } from "../models/Reminder.js";
 import { RefreshToken } from "../models/RefreshToken.js";
 import { User } from "../models/User.js";
 
@@ -13,6 +14,7 @@ export async function connectMongo() {
     User.syncIndexes(),
     AdminUser.syncIndexes(),
     Notification.syncIndexes(),
+    Reminder.syncIndexes(),
     RefreshToken.syncIndexes(),
   ]);
 }

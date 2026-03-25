@@ -239,6 +239,66 @@ export const openApiSpec = {
           },
         },
       },
+      ReminderBody: {
+        type: "object",
+        description:
+          "Optional overrides when sending a reminder. If omitted/empty, the reminder uses the original title/body.",
+        properties: {
+          title: { type: "string", example: "Reminder: Maintenance Notice" },
+          body: { type: "string", example: "Reminder: System will be down at 10 PM." },
+        },
+      },
+      Reminder: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          notificationId: { type: "string" },
+          title: { type: "string" },
+          body: { type: "string" },
+          targetType: { type: "string", enum: ["users", "role"] },
+          targetUsers: { type: "array", items: { type: "string" } },
+          targetRoles: {
+            type: "array",
+            items: { type: "string", enum: ["user", "admin"] },
+          },
+          recipientsCount: { type: "number" },
+          myRead: { type: "boolean" },
+          myReadAt: { type: "string", format: "date-time", nullable: true },
+          createdBy: {
+            type: "object",
+            properties: {
+              userId: { type: "string" },
+              role: { type: "string", enum: ["admin"] },
+            },
+          },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ReminderResponse: {
+        type: "object",
+        properties: {
+          reminder: { $ref: "#/components/schemas/Reminder" },
+        },
+      },
+      RemindersListResponse: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: { $ref: "#/components/schemas/Reminder" },
+          },
+          meta: {
+            type: "object",
+            properties: {
+              total: { type: "number" },
+              page: { type: "number" },
+              limit: { type: "number" },
+              totalPages: { type: "number" },
+            },
+          },
+        },
+      },
     },
   },
   paths: {
@@ -565,6 +625,92 @@ export const openApiSpec = {
           200: { description: "Marked as read", content: { "application/json": { schema: { $ref: "#/components/schemas/NotificationResponse" } } } },
           401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
           404: { description: "Notification not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
+    "/api/notifications/{notificationId}/remind": {
+      post: {
+        tags: ["Notifications"],
+        summary: "Admin: send a reminder for an existing notification",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "notificationId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ReminderBody" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Reminder created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ReminderResponse" },
+              },
+            },
+          },
+          400: { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden (admin only)", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          404: { description: "Notification not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
+    "/api/reminders": {
+      get: {
+        tags: ["Notifications"],
+        summary: "List reminders for current user (admin can view broader)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "page", in: "query", schema: { type: "number", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "number", default: 10 } },
+          { name: "search", in: "query", schema: { type: "string" } },
+          {
+            name: "read",
+            in: "query",
+            schema: { type: "string", enum: ["true", "false"] },
+            description: "For non-admin users: filter by read state",
+          },
+        ],
+        responses: {
+          200: {
+            description: "Reminders list",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/RemindersListResponse" },
+              },
+            },
+          },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
+    "/api/reminders/{reminderId}/read": {
+      patch: {
+        tags: ["Notifications"],
+        summary: "Mark current user's reminder as read",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "reminderId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          200: { description: "Marked as read", content: { "application/json": { schema: { $ref: "#/components/schemas/ReminderResponse" } } } },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          404: { description: "Reminder not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
         },
       },
     },

@@ -101,7 +101,10 @@ Full path-level response lists and request schemas live in **`GET /openapi.json`
 - `POST /api/notifications` — admin-only; JSON body matches OpenAPI **`CreateNotificationBody`**: `title`, `body`, `targetType` (`users`|`role`), plus `targetUsers` (Mongo id strings) or `targetRoles` (`user`|`admin`) per `targetType`
 - `PATCH /api/notifications/:notificationId` — admin-only partial update; body matches OpenAPI **`UpdateNotificationBody`** (at least one field; changing `targetType` re-resolves recipients like create)
 - `DELETE /api/notifications/:notificationId` — admin-only delete → **204**
+- `POST /api/notifications/:notificationId/remind` — admin-only create a reminder record from an existing notification (stored in **`reminders`** collection; optional overrides body matches OpenAPI **`ReminderBody`**)
 - `PATCH /api/notifications/:notificationId/read` — recipient marks their copy read (must be in `recipients`)
+- `GET /api/reminders` — authenticated list (users see own, admins see broader). Query: `page`, `limit`, `search`, `read` (`true`|`false`, non-admin read filter)
+- `PATCH /api/reminders/:reminderId/read` — recipient marks their reminder read
 - `GET /api/users` — admin-only list/filter/search users (`page`, `limit`, `role`, `accountStatus`, `search`)
 - `PATCH /api/users/:userId` — admin-only update user `email`, `role`, or `accountStatus`
 - `PATCH /api/users/:userId/deactivate` — admin-only deactivate user account

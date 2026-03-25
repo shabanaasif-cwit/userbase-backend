@@ -19,10 +19,11 @@ function durationEnv(envKey, fallback) {
   }
   return value;
 }
-
+/** It simply means: if process.env.PORT is not set, then use 3001 as the default port. */
 const portRaw = process.env.PORT;
 const port = portRaw !== undefined && portRaw !== "" ? Number(portRaw) : 3001;
 
+//if port is not real number or less than 1, then throw an error instead of running with bad port
 if (Number.isNaN(port) || port < 1) {
   throw new Error("PORT must be a positive number");
 }

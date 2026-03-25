@@ -20,6 +20,7 @@ export function errorHandler(err, _req, res, _next) {
     e = new AppError(409, "Duplicate entry");
   }
 
+  //if error is 500 or higher, it logs the full error on the server with console.error(e)
   const statusCode =
     e instanceof AppError ? e.statusCode : e.statusCode ?? 500;
   const isOperational = e instanceof AppError && e.isOperational;
