@@ -10,6 +10,7 @@ import {
   markNotificationRead,
   updateNotification,
 } from "../services/notificationService.js";
+import { createReminderFromNotification } from "../services/reminderService.js";
 
 const router = Router();
 const adminOnly = [verifyJwt, requireRole("admin")];
@@ -57,6 +58,20 @@ router.delete(
   })
 );
 router.all("/:notificationId", methodNotAllowed("PATCH, DELETE"));
+
+router.post(
+  "/:notificationId/remind",
+  ...adminOnly,
+  asyncHandler(async (req, res) => {
+    const reminder = await createReminderFromNotification(
+      req.params.notificationId,
+      req.body,
+      req.user
+    );
+    res.status(201).json({ reminder });
+  })
+);
+router.all("/:notificationId/remind", methodNotAllowed("POST"));
 
 router.patch(
   "/:notificationId/read",

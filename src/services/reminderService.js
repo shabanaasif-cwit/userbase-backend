@@ -1,17 +1,14 @@
 import mongoose from "mongoose";
 import { AdminUser } from "../models/AdminUser.js";
 import { Notification } from "../models/Notification.js";
+import { Reminder } from "../models/Reminder.js";
 import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
-import {
-  validateCreateNotificationPayload,
-  validateReminderPayload,
-  validateUpdateNotificationPayload,
-} from "../validation/notificationPayload.js";
+import { validateReminderPayload } from "../validation/notificationPayload.js";
 
 const ALLOWED_ROLES = ["user", "admin"];
 
-function sanitizeNotification(doc, viewerId) {
+function sanitizeReminder(doc, viewerId) {
   const json = doc.toObject();
   let myRecipient = null;
   if (viewerId) {
@@ -21,6 +18,7 @@ function sanitizeNotification(doc, viewerId) {
   }
   return {
     id: String(json._id),
+    notificationId: String(json.notificationId),
     title: json.title,
     body: json.body,
     targetType: json.targetType,
@@ -56,7 +54,7 @@ async function resolveRecipients(targetType, targetUsers, targetRoles) {
     try {
       objectIds = targetUsers.map((id) => new mongoose.Types.ObjectId(id));
     } catch {
-      throw new AppError(400, "Invalid target user id");  
+      throw new AppError(400, "Invalid target user id");
     }
     const [users, admins] = await Promise.all([
       User.find({ _id: { $in: objectIds } }, { _id: 1, role: 1 }),
@@ -99,27 +97,33 @@ function dedupeRecipients(recipients) {
   return Array.from(map.values());
 }
 
-export async function createNotification(body, actor) {
-  validateCreateNotificationPayload(body);
-  const title = String(body.title).trim();
-  const message = String(body.body).trim();
-  const targetType = body.targetType;
-  const targetUsers = body.targetUsers ?? [];
-  const targetRoles = body.targetRoles ?? [];
+export async function createReminderFromNotification(notificationId, body, actor) {
+  validateReminderPayload(body);
+  const original = await Notification.findById(notificationId);
+  if (!original) {
+    throw new AppError(404, "Notification not found");
+  }
+
+  const nextTitle =
+    body?.title !== undefined ? String(body.title).trim() : original.title;
+  const nextBody =
+    body?.body !== undefined ? String(body.body).trim() : original.body;
 
   const recipients = dedupeRecipients(
-    await resolveRecipients(targetType, targetUsers, targetRoles)
+    await resolveRecipients(
+      original.targetType,
+      (original.targetUsers ?? []).map((id) => String(id)),
+      original.targetRoles ?? []
+    )
   );
 
-  const doc = await Notification.create({
-    title,
-    body: message,
-    targetType,
-    targetUsers:
-      targetType === "users"
-        ? recipients.map((r) => r.userId)
-        : [],
-    targetRoles: targetType === "role" ? targetRoles : [],
+  const doc = await Reminder.create({
+    notificationId: original._id,
+    title: nextTitle,
+    body: nextBody,
+    targetType: original.targetType,
+    targetUsers: original.targetType === "users" ? original.targetUsers ?? [] : [],
+    targetRoles: original.targetType === "role" ? original.targetRoles ?? [] : [],
     recipients: recipients.map((r) => ({
       userId: r.userId,
       role: r.role,
@@ -131,20 +135,10 @@ export async function createNotification(body, actor) {
     },
   });
 
-  return sanitizeNotification(doc);
+  return sanitizeReminder(doc);
 }
 
-export async function sendNotificationReminder(notificationId, body, actor) {
-  // Backwards-compat shim: reminders now live in the `reminders` collection.
-  // This function is kept to avoid breaking imports; routes should use reminderService.
-  validateReminderPayload(body);
-  throw new AppError(
-    410,
-    "Reminders are stored in /api/reminders; use POST /api/notifications/:notificationId/remind (returns reminder)"
-  );
-}
-
-export async function listNotificationsForViewer(query, viewer) {
+export async function listRemindersForViewer(query, viewer) {
   const page = Math.max(Number.parseInt(query.page ?? "1", 10) || 1, 1);
   const limit = Math.min(
     Math.max(Number.parseInt(query.limit ?? "10", 10) || 10, 1),
@@ -167,7 +161,7 @@ export async function listNotificationsForViewer(query, viewer) {
   }
 
   const skip = (page - 1) * limit;
-  const docs = await Notification.find(filter).sort({ createdAt: -1 });
+  const docs = await Reminder.find(filter).sort({ createdAt: -1 });
 
   let filtered = docs;
   if (viewer.role !== "admin" && (read === "true" || read === "false")) {
@@ -183,7 +177,7 @@ export async function listNotificationsForViewer(query, viewer) {
   const total = filtered.length;
   const sliced = filtered.slice(skip, skip + limit);
   return {
-    items: sliced.map((d) => sanitizeNotification(d, viewer.userId)),
+    items: sliced.map((d) => sanitizeReminder(d, viewer.userId)),
     meta: {
       total,
       page,
@@ -193,74 +187,22 @@ export async function listNotificationsForViewer(query, viewer) {
   };
 }
 
-export async function updateNotification(notificationId, body) {
-  validateUpdateNotificationPayload(body);
-  const notification = await Notification.findById(notificationId);
-  if (!notification) {
-    throw new AppError(404, "Notification not found");
-  }
-
-  const patch = {};
-  if (body.title !== undefined) {
-    patch.title = String(body.title).trim();
-  }
-  if (body.body !== undefined) {
-    patch.body = String(body.body).trim();
-  }
-
-  let recipients = null;
-  if (body.targetType !== undefined) {
-    recipients = dedupeRecipients(
-      await resolveRecipients(
-        body.targetType,
-        body.targetUsers ?? [],
-        body.targetRoles ?? []
-      )
-    );
-    patch.targetType = body.targetType;
-    patch.targetUsers =
-      body.targetType === "users" ? recipients.map((r) => r.userId) : [];
-    patch.targetRoles = body.targetType === "role" ? body.targetRoles ?? [] : [];
-  }
-
-  if (Object.keys(patch).length === 0) {
-    throw new AppError(400, "No valid fields to update");
-  }
-
-  Object.assign(notification, patch);
-  if (recipients) {
-    notification.recipients = recipients.map((r) => ({
-      userId: r.userId,
-      role: r.role,
-      readAt: null,
-    }));
-  }
-  await notification.save();
-  return sanitizeNotification(notification);
-}
-
-export async function deleteNotification(notificationId) {
-  const deleted = await Notification.findByIdAndDelete(notificationId);
-  if (!deleted) {
-    throw new AppError(404, "Notification not found");
-  }
-}
-
-export async function markNotificationRead(notificationId, viewer) {
-  const notification = await Notification.findOne({
-    _id: notificationId,
+export async function markReminderRead(reminderId, viewer) {
+  const reminder = await Reminder.findOne({
+    _id: reminderId,
     "recipients.userId": new mongoose.Types.ObjectId(viewer.userId),
   });
-  if (!notification) {
-    throw new AppError(404, "Notification not found");
+  if (!reminder) {
+    throw new AppError(404, "Reminder not found");
   }
 
-  const recipient = notification.recipients.find(
+  const recipient = reminder.recipients.find(
     (r) => String(r.userId) === String(viewer.userId)
   );
   if (recipient && !recipient.readAt) {
     recipient.readAt = new Date();
-    await notification.save();
+    await reminder.save();
   }
-  return sanitizeNotification(notification, viewer.userId);
+  return sanitizeReminder(reminder, viewer.userId);
 }
+

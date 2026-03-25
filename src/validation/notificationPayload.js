@@ -84,3 +84,30 @@ export function validateUpdateNotificationPayload(body) {
     throw new AppError(400, "targetRoles must be an array");
   }
 }
+
+/**
+ * Validates reminder payload (optional overrides). Throws AppError(400, ...).
+ * @param {unknown} body
+ */
+export function validateReminderPayload(body) {
+  if (body === undefined || body === null) return;
+  if (!isPlainObject(body)) {
+    throw new AppError(400, "Request body must be a JSON object");
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "title")) {
+    if (body.title === null || typeof body.title !== "string") {
+      throw new AppError(400, "title must be a string");
+    }
+    if (!String(body.title).trim()) {
+      throw new AppError(400, "title cannot be empty");
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "body")) {
+    if (body.body === null || typeof body.body !== "string") {
+      throw new AppError(400, "body must be a string");
+    }
+    if (!String(body.body).trim()) {
+      throw new AppError(400, "body cannot be empty");
+    }
+  }
+}
