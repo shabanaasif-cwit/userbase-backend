@@ -9,8 +9,6 @@ import {
   validateUpdateNotificationPayload,
 } from "../validation/notificationPayload.js";
 
-const ALLOWED_ROLES = ["user", "admin"];
-
 function sanitizeNotification(doc, viewerId) {
   const json = doc.toObject();
   let myRecipient = null;
@@ -72,23 +70,23 @@ async function resolveRecipients(targetType, targetUsers, targetRoles) {
     return found;
   }
 
-  if (targetType === "role") {
-    if (!Array.isArray(targetRoles) || targetRoles.length === 0) {
-      throw new AppError(400, "targetRoles is required for targetType=role");
-    }
-    const invalid = targetRoles.filter((r) => !ALLOWED_ROLES.includes(r));
-    if (invalid.length > 0) {
-      throw new AppError(400, "Invalid target role");
-    }
-    const sets = await Promise.all(targetRoles.map((r) => getRoleUsers(r)));
-    const recipients = sets.flat();
+  if (targetType === "user" || targetType === "admin") {
+    return getRoleUsers(targetType);
+  }
+
+  if (targetType === "all") {
+    const [users, admins] = await Promise.all([
+      getRoleUsers("user"),
+      getRoleUsers("admin"),
+    ]);
+    const recipients = [...users, ...admins];
     if (recipients.length === 0) {
-      throw new AppError(400, "No recipients found for selected roles");
+      throw new AppError(400, "No recipients found for all users");
     }
     return recipients;
   }
 
-  throw new AppError(400, "targetType must be users or role");
+  throw new AppError(400, "targetType must be users, user, admin, or all");
 }
 
 function dedupeRecipients(recipients) {
@@ -119,7 +117,14 @@ export async function createNotification(body, actor) {
       targetType === "users"
         ? recipients.map((r) => r.userId)
         : [],
-    targetRoles: targetType === "role" ? targetRoles : [],
+    targetRoles:
+      targetType === "user"
+        ? ["user"]
+        : targetType === "admin"
+          ? ["admin"]
+          : targetType === "all"
+            ? ["user", "admin"]
+            : [],
     recipients: recipients.map((r) => ({
       userId: r.userId,
       role: r.role,
@@ -220,7 +225,14 @@ export async function updateNotification(notificationId, body) {
     patch.targetType = body.targetType;
     patch.targetUsers =
       body.targetType === "users" ? recipients.map((r) => r.userId) : [];
-    patch.targetRoles = body.targetType === "role" ? body.targetRoles ?? [] : [];
+    patch.targetRoles =
+      body.targetType === "user"
+        ? ["user"]
+        : body.targetType === "admin"
+          ? ["admin"]
+          : body.targetType === "all"
+            ? ["user", "admin"]
+            : [];
   }
 
   if (Object.keys(patch).length === 0) {

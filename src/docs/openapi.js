@@ -156,7 +156,7 @@ export const openApiSpec = {
           id: { type: "string" },
           title: { type: "string" },
           body: { type: "string" },
-          targetType: { type: "string", enum: ["users", "role"] },
+          targetType: { type: "string", enum: ["users", "user", "admin", "all"] },
           targetUsers: { type: "array", items: { type: "string" } },
           targetRoles: {
             type: "array",
@@ -206,7 +206,7 @@ export const openApiSpec = {
         properties: {
           title: { type: "string", example: "Maintenance Notice" },
           body: { type: "string", example: "System will be down at 10 PM." },
-          targetType: { type: "string", enum: ["users", "role"] },
+          targetType: { type: "string", enum: ["users", "user", "admin", "all"] },
           targetUsers: {
             type: "array",
             items: { type: "string" },
@@ -226,7 +226,7 @@ export const openApiSpec = {
         properties: {
           title: { type: "string", example: "Updated title" },
           body: { type: "string", example: "Updated message." },
-          targetType: { type: "string", enum: ["users", "role"] },
+          targetType: { type: "string", enum: ["users", "user", "admin", "all"] },
           targetUsers: {
             type: "array",
             items: { type: "string" },
@@ -255,7 +255,7 @@ export const openApiSpec = {
           notificationId: { type: "string" },
           title: { type: "string" },
           body: { type: "string" },
-          targetType: { type: "string", enum: ["users", "role"] },
+          targetType: { type: "string", enum: ["users", "user", "admin", "all"] },
           targetUsers: { type: "array", items: { type: "string" } },
           targetRoles: {
             type: "array",
