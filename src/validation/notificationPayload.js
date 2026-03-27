@@ -1,6 +1,6 @@
 import { AppError } from "../utils/AppError.js";
 
-const TARGET_TYPES = ["users", "role"];
+const TARGET_TYPES = ["users", "user", "admin", "all"];
 
 const UPDATE_KEYS = ["title", "body", "targetType", "targetUsers", "targetRoles"];
 
@@ -32,7 +32,10 @@ export function validateCreateNotificationPayload(body) {
     throw new AppError(400, "title and body are required");
   }
   if (!TARGET_TYPES.includes(body.targetType)) {
-    throw new AppError(400, "targetType must be users or role");
+    throw new AppError(
+      400,
+      "targetType must be users, user, admin, or all"
+    );
   }
   if (body.targetUsers !== undefined && !Array.isArray(body.targetUsers)) {
     throw new AppError(400, "targetUsers must be an array");
@@ -73,9 +76,12 @@ export function validateUpdateNotificationPayload(body) {
     }
   }
   if (Object.prototype.hasOwnProperty.call(body, "targetType")) {
-    if (!TARGET_TYPES.includes(body.targetType)) {
-      throw new AppError(400, "targetType must be users or role");
-    }
+  if (!TARGET_TYPES.includes(body.targetType)) {
+    throw new AppError(
+      400,
+      "targetType must be users, user, admin, or all"
+    );
+  }
   }
   if (body.targetUsers !== undefined && !Array.isArray(body.targetUsers)) {
     throw new AppError(400, "targetUsers must be an array");

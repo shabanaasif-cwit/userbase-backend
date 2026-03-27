@@ -10,6 +10,8 @@ export async function connectMongo() {
   mongoose.set("strictQuery", true);
   await mongoose.connect(env.MONGODB_URI);
   // Keep DB indexes aligned with schemas (drops stale/incorrect unique indexes).
+  //syncindex of your schema says email should be unique, syncIndexes() makes sure that unique index exists,
+  //  and it can also remove old indexes that no longer match the schema.
   await Promise.all([
     User.syncIndexes(),
     AdminUser.syncIndexes(),
@@ -19,6 +21,7 @@ export async function connectMongo() {
   ]);
 }
 
+//async lets the function wait for that operation properly
 export async function disconnectMongo() {
   await mongoose.disconnect();
 }

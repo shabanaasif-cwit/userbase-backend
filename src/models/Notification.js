@@ -34,7 +34,7 @@ const notificationSchema = new mongoose.Schema(
     },
     targetType: {
       type: String,
-      enum: ["users", "role"],
+      enum: ["users", "user", "admin", "all"],
       required: true,
     },
     targetUsers: {
