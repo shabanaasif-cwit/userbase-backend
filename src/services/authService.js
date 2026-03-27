@@ -13,11 +13,15 @@ import {
 
 const SALT_ROUNDS = 12;
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 64;
 const ALLOWED_ROLES = ["user", "admin"];
 const HAS_WHITESPACE = /\s/;
 const HAS_BACKTICK = /`/;
 const HAS_NUMBER = /\d/;
 const HAS_SPECIAL = /[^A-Za-z0-9]/;
+const HAS_TLD = /^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/;
+const MAX_EMAIL_LOCAL_LENGTH = 20;
+const STARTS_WITH_CAPITAL = /^[A-Z]/;
 
 function sanitizeUser(user) {
   return {
@@ -54,8 +58,32 @@ export async function signup(body) {
   const password = body?.password;
   const confirmPassword = body?.confirmPassword;
   const role = body?.role;
+  const firstName = String(body?.firstName ?? "").trim();
+  const lastName = String(body?.lastName ?? "").trim();
   if (!email || !password) {
     throw new AppError(400, "Email and password required");
+  }
+  if (!firstName && !lastName) {
+    throw new AppError(400, "First name or last name is required");
+  }
+  if (firstName && !STARTS_WITH_CAPITAL.test(firstName)) {
+    throw new AppError(400, "First name must start with a capital letter");
+  }
+  if (lastName && !STARTS_WITH_CAPITAL.test(lastName)) {
+    throw new AppError(400, "Last name must start with a capital letter");
+  }
+  if (!HAS_TLD.test(email)) {
+    throw new AppError(
+      400,
+      "Email must include a valid top-level domain(.com, .net, etc.)"
+    );
+  }
+  const emailLocal = email.split("@")[0];
+  if (emailLocal.length > MAX_EMAIL_LOCAL_LENGTH) {
+    throw new AppError(
+      400,
+      `User email before @ must be ${MAX_EMAIL_LOCAL_LENGTH} characters or fewer`
+    );
   }
   if (!confirmPassword) {
     throw new AppError(400, "Confirm password is required");
@@ -69,10 +97,14 @@ export async function signup(body) {
   if (!ALLOWED_ROLES.includes(role)) {
     throw new AppError(400, "Role must be user or admin");
   }
-  if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+  if (
+    typeof password !== "string" ||
+    password.length < MIN_PASSWORD_LENGTH ||
+    password.length > MAX_PASSWORD_LENGTH
+  ) {
     throw new AppError(
       400,
-      `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
+      `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters`
     );
   }
   if (HAS_WHITESPACE.test(password)) {
@@ -103,12 +135,16 @@ export async function signup(body) {
         ? await AdminUser.create({
             email,
             passwordHash,
+            firstName: firstName || undefined,
+            lastName: lastName || undefined,
             role: "admin",
             accountStatus: "active",
           })
         : await User.create({
             email,
             passwordHash,
+            firstName: firstName || undefined,
+            lastName: lastName || undefined,
             role: "user",
             accountStatus: "active",
           });
@@ -122,11 +158,27 @@ export async function signup(body) {
 }
 
 export async function login(body) {
-  const email = String(body?.email ?? "").trim().toLowerCase();
+  let email = String(body?.email ?? "").trim().toLowerCase();
   const password = body?.password;
   const role = body?.role;
+  if (email && !email.includes("@")) {
+    email = `${email}@suybmol.com`;
+  }
   if (!email || !password) {
     throw new AppError(400, "Email and password required");
+  }
+  if (!HAS_TLD.test(email)) {
+    throw new AppError(
+      400,
+      "Email must include a valid top-level domain(.com, .net, etc.)"
+    );
+  }
+  const emailLocal = email.split("@")[0];
+  if (emailLocal.length > MAX_EMAIL_LOCAL_LENGTH) {
+    throw new AppError(
+      400,
+      `User email before @ must be ${MAX_EMAIL_LOCAL_LENGTH} characters or fewer`
+    );
   }
   if (!role) {
     throw new AppError(400, "Role is required");
