@@ -98,7 +98,7 @@ Full path-level response lists and request schemas live in **`GET /openapi.json`
 - `POST /api/auth/logout` — revokes refresh session (if cookie present), clears cookie → **204**
 - `GET /api/auth/me` — header `Authorization: Bearer <accessToken>` → `{ user }`
 - `GET /api/notifications` — authenticated list (users see own, admins see broader). Query: `page`, `limit`, `search`, `read` (`true`|`false`, non-admin read filter)
-- `POST /api/notifications` — admin-only; JSON body matches OpenAPI **`CreateNotificationBody`**: `title`, `body`, `targetType` (`users`|`role`), plus `targetUsers` (Mongo id strings) or `targetRoles` (`user`|`admin`) per `targetType`
+- `POST /api/notifications` — admin-only; JSON body matches OpenAPI **`CreateNotificationBody`**: `title`, `body`, `targetType` (`users` = specific ids in `targetUsers`, `user` = all app users, `admin` = all admins, `all` = everyone)
 - `PATCH /api/notifications/:notificationId` — admin-only partial update; body matches OpenAPI **`UpdateNotificationBody`** (at least one field; changing `targetType` re-resolves recipients like create)
 - `DELETE /api/notifications/:notificationId` — admin-only delete → **204**
 - `POST /api/notifications/:notificationId/remind` — admin-only create a reminder record from an existing notification (stored in **`reminders`** collection; optional overrides body matches OpenAPI **`ReminderBody`**)

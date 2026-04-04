@@ -57,7 +57,7 @@ describe("validateCreateNotificationPayload", () => {
         targetType: "broadcast",
         targetUsers: [],
       })
-    ).toThrow(/targetType must be users or role/);
+    ).toThrow(/targetType must be users, user, admin, or all/);
   });
 
   it("rejects non-array targetUsers/targetRoles", () => {
@@ -73,7 +73,8 @@ describe("validateCreateNotificationPayload", () => {
       validateCreateNotificationPayload({
         title: "t",
         body: "m",
-        targetType: "role",
+        targetType: "users",
+        targetUsers: ["507f1f77bcf86cd799439011"],
         targetRoles: {},
       })
     ).toThrow(/targetRoles must be an array/);
@@ -107,9 +108,9 @@ describe("validateUpdateNotificationPayload", () => {
     expect(() => validateUpdateNotificationPayload({ body: "  " })).toThrow(
       /body cannot be empty/
     );
-    expect(() => validateUpdateNotificationPayload({ targetType: "all" })).toThrow(
-      /targetType must be users or role/
-    );
+    expect(() =>
+      validateUpdateNotificationPayload({ targetType: "broadcast" })
+    ).toThrow(/targetType must be users, user, admin, or all/);
   });
 
   it("rejects non-array targetUsers/targetRoles when present", () => {

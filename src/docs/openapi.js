@@ -215,7 +215,8 @@ export const openApiSpec = {
           targetRoles: {
             type: "array",
             items: { type: "string", enum: ["user", "admin"] },
-            description: "Required when targetType=role",
+            description:
+              "Optional; ignored on create. Recipients are determined only by targetType: users (targetUsers), user (all app users), admin (all admins), or all.",
           },
         },
       },
@@ -235,7 +236,8 @@ export const openApiSpec = {
           targetRoles: {
             type: "array",
             items: { type: "string", enum: ["user", "admin"] },
-            description: "Required when setting targetType=role",
+            description:
+              "Optional; ignored on update. Use targetType user, admin, users, or all.",
           },
         },
       },
@@ -624,6 +626,10 @@ export const openApiSpec = {
         responses: {
           200: { description: "Marked as read", content: { "application/json": { schema: { $ref: "#/components/schemas/NotificationResponse" } } } },
           401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: {
+            description: "JWT user is not among this notification's recipients",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } },
+          },
           404: { description: "Notification not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
         },
       },
@@ -710,6 +716,10 @@ export const openApiSpec = {
         responses: {
           200: { description: "Marked as read", content: { "application/json": { schema: { $ref: "#/components/schemas/ReminderResponse" } } } },
           401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: {
+            description: "JWT user is not among this reminder's recipients",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } },
+          },
           404: { description: "Reminder not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
         },
       },

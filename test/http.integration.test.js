@@ -127,8 +127,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       .send({
         title: "Hi",
         body: "There",
-        targetType: "role",
-        targetRoles: ["user"],
+        targetType: "user",
       });
     expect(forbidden.status).toBe(403);
     expect(forbidden.body).toEqual({ error: "Forbidden (admin only)" });
@@ -265,6 +264,102 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       .set("Authorization", `Bearer ${userToken}`);
     expect(list.status).toBe(200);
     expect(list.body.items.some((r) => r.notificationId === originalId)).toBe(true);
+  });
+
+  it("notifications: admin remind on targetType=user resolves app users", async () => {
+    const userSignup = await request(app).post("/api/auth/signup").send({
+      email: "notif-remind-usertype@test.com",
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(userSignup.status).toBe(201);
+    const userToken = userSignup.body.accessToken;
+
+    const adminSignup = await request(app).post("/api/auth/signup").send({
+      email: "notif-remind-usertype-admin@test.com",
+      password,
+      confirmPassword: password,
+      role: "admin",
+    });
+    expect(adminSignup.status).toBe(201);
+    const adminToken = adminSignup.body.accessToken;
+
+    const created = await request(app)
+      .post("/api/notifications")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "All users",
+        body: "Hello everyone",
+        targetType: "user",
+      });
+    expect(created.status).toBe(201);
+    const originalId = created.body.notification.id;
+
+    const reminded = await request(app)
+      .post(`/api/notifications/${originalId}/remind`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: "Reminder", body: "Please read" });
+    expect(reminded.status).toBe(201);
+
+    const list = await request(app)
+      .get("/api/reminders")
+      .set("Authorization", `Bearer ${userToken}`);
+    expect(list.status).toBe(200);
+    expect(list.body.items.some((r) => r.notificationId === originalId)).toBe(true);
+  });
+
+  it("notifications: admin remind on targetType=admin does not add regular users as recipients", async () => {
+    const userSignup = await request(app).post("/api/auth/signup").send({
+      email: "notif-remind-admintype-user@test.com",
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(userSignup.status).toBe(201);
+    const userToken = userSignup.body.accessToken;
+
+    const adminSignup = await request(app).post("/api/auth/signup").send({
+      email: "notif-remind-admintype-admin@test.com",
+      password,
+      confirmPassword: password,
+      role: "admin",
+    });
+    expect(adminSignup.status).toBe(201);
+    const adminToken = adminSignup.body.accessToken;
+
+    const created = await request(app)
+      .post("/api/notifications")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Admins only",
+        body: "Internal",
+        targetType: "admin",
+      });
+    expect(created.status).toBe(201);
+    const originalId = created.body.notification.id;
+
+    const reminded = await request(app)
+      .post(`/api/notifications/${originalId}/remind`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: "Reminder", body: "Action needed" });
+    expect(reminded.status).toBe(201);
+
+    const userList = await request(app)
+      .get("/api/reminders")
+      .set("Authorization", `Bearer ${userToken}`);
+    expect(userList.status).toBe(200);
+    expect(
+      userList.body.items.some((r) => r.notificationId === originalId)
+    ).toBe(false);
+
+    const adminList = await request(app)
+      .get("/api/reminders")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(adminList.status).toBe(200);
+    expect(
+      adminList.body.items.some((r) => r.notificationId === originalId)
+    ).toBe(true);
   });
 
   it("notifications: user cannot patch admin update endpoint", async () => {

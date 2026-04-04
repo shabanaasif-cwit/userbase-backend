@@ -6,8 +6,6 @@ import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 import { validateReminderPayload } from "../validation/notificationPayload.js";
 
-const ALLOWED_ROLES = ["user", "admin"];
-
 function sanitizeReminder(doc, viewerId) {
   const json = doc.toObject();
   let myRecipient = null;
@@ -45,7 +43,7 @@ async function getRoleUsers(role) {
   return users.map((u) => ({ userId: u._id, role: "user" }));
 }
 
-async function resolveRecipients(targetType, targetUsers, targetRoles) {
+async function resolveRecipients(targetType, targetUsers) {
   if (targetType === "users") {
     if (!Array.isArray(targetUsers) || targetUsers.length === 0) {
       throw new AppError(400, "targetUsers is required for targetType=users");
@@ -69,20 +67,9 @@ async function resolveRecipients(targetType, targetUsers, targetRoles) {
     }
     return found;
   }
-  if (targetType === "role") {
-    if (!Array.isArray(targetRoles) || targetRoles.length === 0) {
-      throw new AppError(400, "targetRoles is required for targetType=role");
-    }
-    const invalid = targetRoles.filter((r) => !ALLOWED_ROLES.includes(r));
-    if (invalid.length > 0) {
-      throw new AppError(400, "Invalid target role");
-    }
-    const sets = await Promise.all(targetRoles.map((r) => getRoleUsers(r)));
-    const recipients = sets.flat();
-    if (recipients.length === 0) {
-      throw new AppError(400, "No recipients found for selected roles");
-    }
-    return recipients;
+
+  if (targetType === "user" || targetType === "admin") {
+    return getRoleUsers(targetType);
   }
 
   if (targetType === "all") {
@@ -97,7 +84,7 @@ async function resolveRecipients(targetType, targetUsers, targetRoles) {
     return recipients;
   }
 
-  throw new AppError(400, "targetType must be users, role, or all");
+  throw new AppError(400, "targetType must be users, user, admin, or all");
 }
 
 function dedupeRecipients(recipients) {
@@ -123,8 +110,7 @@ export async function createReminderFromNotification(notificationId, body, actor
   const recipients = dedupeRecipients(
     await resolveRecipients(
       original.targetType,
-      (original.targetUsers ?? []).map((id) => String(id)),
-      original.targetRoles ?? []
+      (original.targetUsers ?? []).map((id) => String(id))
     )
   );
 
@@ -135,11 +121,13 @@ export async function createReminderFromNotification(notificationId, body, actor
     targetType: original.targetType,
     targetUsers: original.targetType === "users" ? original.targetUsers ?? [] : [],
     targetRoles:
-      original.targetType === "role"
-        ? original.targetRoles ?? []
-        : original.targetType === "all"
-          ? ["user", "admin"]
-          : [],
+      original.targetType === "all"
+        ? ["user", "admin"]
+        : original.targetType === "user"
+          ? ["user"]
+          : original.targetType === "admin"
+            ? ["admin"]
+            : [],
     recipients: recipients.map((r) => ({
       userId: r.userId,
       role: r.role,
@@ -204,21 +192,30 @@ export async function listRemindersForViewer(query, viewer) {
 }
 
 export async function markReminderRead(reminderId, viewer) {
-  const reminder = await Reminder.findOne({
-    _id: reminderId,
-    "recipients.userId": new mongoose.Types.ObjectId(viewer.userId),
-  });
+  const rid = String(reminderId ?? "").trim();
+  const viewerIdStr = String(viewer?.userId ?? "").trim();
+  if (!mongoose.isValidObjectId(rid)) {
+    throw new AppError(404, "Reminder not found");
+  }
+
+  const reminder = await Reminder.findById(rid);
   if (!reminder) {
     throw new AppError(404, "Reminder not found");
   }
 
   const recipient = reminder.recipients.find(
-    (r) => String(r.userId) === String(viewer.userId)
+    (r) => String(r.userId) === viewerIdStr
   );
-  if (recipient && !recipient.readAt) {
+  if (!recipient) {
+    throw new AppError(
+      403,
+      "Not a recipient of this reminder"
+    );
+  }
+
+  if (!recipient.readAt) {
     recipient.readAt = new Date();
     await reminder.save();
   }
-  return sanitizeReminder(reminder, viewer.userId);
+  return sanitizeReminder(reminder, viewerIdStr);
 }
-
