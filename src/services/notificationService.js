@@ -259,20 +259,30 @@ export async function deleteNotification(notificationId) {
 }
 
 export async function markNotificationRead(notificationId, viewer) {
-  const notification = await Notification.findOne({
-    _id: notificationId,
-    "recipients.userId": new mongoose.Types.ObjectId(viewer.userId),
-  });
+  const nid = String(notificationId ?? "").trim();
+  const viewerIdStr = String(viewer?.userId ?? "").trim();
+  if (!mongoose.isValidObjectId(nid)) {
+    throw new AppError(404, "Notification not found");
+  }
+
+  const notification = await Notification.findById(nid);
   if (!notification) {
     throw new AppError(404, "Notification not found");
   }
 
   const recipient = notification.recipients.find(
-    (r) => String(r.userId) === String(viewer.userId)
+    (r) => String(r.userId) === viewerIdStr
   );
-  if (recipient && !recipient.readAt) {
+  if (!recipient) {
+    throw new AppError(
+      403,
+      "Not a recipient of this notification"
+    );
+  }
+
+  if (!recipient.readAt) {
     recipient.readAt = new Date();
     await notification.save();
   }
-  return sanitizeNotification(notification, viewer.userId);
+  return sanitizeNotification(notification, viewerIdStr);
 }

@@ -40,7 +40,7 @@ const reminderSchema = new mongoose.Schema(
     },
     targetType: {
       type: String,
-      enum: ["users", "user", "admin", "all", "role"],
+      enum: ["users", "user", "admin", "all"],
       required: true,
     },
     targetUsers: {
