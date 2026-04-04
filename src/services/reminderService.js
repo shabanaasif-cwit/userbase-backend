@@ -69,23 +69,6 @@ async function resolveRecipients(targetType, targetUsers, targetRoles) {
     }
     return found;
   }
-
-  if (targetType === "user" || targetType === "admin") {
-    return getRoleUsers(targetType);
-  }
-
-  if (targetType === "all") {
-    const [users, admins] = await Promise.all([
-      getRoleUsers("user"),
-      getRoleUsers("admin"),
-    ]);
-    const recipients = [...users, ...admins];
-    if (recipients.length === 0) {
-      throw new AppError(400, "No recipients found for all users");
-    }
-    return recipients;
-  }
-
   if (targetType === "role") {
     if (!Array.isArray(targetRoles) || targetRoles.length === 0) {
       throw new AppError(400, "targetRoles is required for targetType=role");
@@ -102,7 +85,19 @@ async function resolveRecipients(targetType, targetUsers, targetRoles) {
     return recipients;
   }
 
-  throw new AppError(400, "targetType must be users, user, admin, or all");
+  if (targetType === "all") {
+    const [users, admins] = await Promise.all([
+      getRoleUsers("user"),
+      getRoleUsers("admin"),
+    ]);
+    const recipients = [...users, ...admins];
+    if (recipients.length === 0) {
+      throw new AppError(400, "No recipients found for all users");
+    }
+    return recipients;
+  }
+
+  throw new AppError(400, "targetType must be users, role, or all");
 }
 
 function dedupeRecipients(recipients) {
@@ -142,13 +137,9 @@ export async function createReminderFromNotification(notificationId, body, actor
     targetRoles:
       original.targetType === "role"
         ? original.targetRoles ?? []
-        : original.targetType === "user"
-          ? ["user"]
-          : original.targetType === "admin"
-            ? ["admin"]
-            : original.targetType === "all"
-              ? ["user", "admin"]
-              : [],
+        : original.targetType === "all"
+          ? ["user", "admin"]
+          : [],
     recipients: recipients.map((r) => ({
       userId: r.userId,
       role: r.role,

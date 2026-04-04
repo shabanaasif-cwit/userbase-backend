@@ -14,7 +14,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     process.env.MONGODB_URI = mongod.getUri();
     process.env.JWT_ACCESS_SECRET = "a".repeat(32);
     process.env.JWT_REFRESH_SECRET = "b".repeat(32);
-    process.env.FRONTEND_ORIGIN = "http://localhost:5173";
+    process.env.FRONTEND_ORIGIN = "http://localhost:3000";
     process.env.NODE_ENV = "test";
 
     const { createApp } = await import("../src/app.js");
