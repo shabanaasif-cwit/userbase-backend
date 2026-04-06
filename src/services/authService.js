@@ -4,6 +4,7 @@ import { env } from "../config/env.js";
 import { RefreshToken } from "../models/RefreshToken.js";
 import { AdminUser } from "../models/AdminUser.js";
 import { User } from "../models/User.js";
+import { assertNonEmptyEmailLocal } from "../utils/email.js";
 import { AppError } from "../utils/AppError.js";
 import {
   signAccessToken,
@@ -63,6 +64,7 @@ export async function signup(body) {
   if (!email || !password) {
     throw new AppError(400, "Email and password required");
   }
+  assertNonEmptyEmailLocal(email);
   if (!firstName && !lastName) {
     throw new AppError(400, "First name or last name is required");
   }
@@ -167,6 +169,7 @@ export async function login(body) {
   if (!email || !password) {
     throw new AppError(400, "Email and password required");
   }
+  assertNonEmptyEmailLocal(email);
   if (!HAS_TLD.test(email)) {
     throw new AppError(
       400,

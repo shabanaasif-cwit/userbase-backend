@@ -112,6 +112,38 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     expect(list.body).toHaveProperty("meta");
   });
 
+  it("users: admin can toggle account status via PATCH toggle-account", async () => {
+    const adminSignup = await request(app).post("/api/auth/signup").send({
+      email: "toggle-admin@test.com",
+      password,
+      confirmPassword: password,
+      role: "admin",
+    });
+    expect(adminSignup.status).toBe(201);
+
+    const userSignup = await request(app).post("/api/auth/signup").send({
+      email: "toggle-target@test.com",
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(userSignup.status).toBe(201);
+    const targetId = userSignup.body.user.id;
+    const adminToken = adminSignup.body.accessToken;
+
+    const off = await request(app)
+      .patch(`/api/users/${targetId}/toggle-account`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(off.status).toBe(200);
+    expect(off.body.user.accountStatus).toBe("deactivated");
+
+    const on = await request(app)
+      .patch(`/api/users/${targetId}/toggle-account`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(on.status).toBe(200);
+    expect(on.body.user.accountStatus).toBe("active");
+  });
+
   it("notifications: validation and RBAC on create", async () => {
     const userSignup = await request(app).post("/api/auth/signup").send({
       email: "notif-user@test.com",

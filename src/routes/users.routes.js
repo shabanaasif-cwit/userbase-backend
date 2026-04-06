@@ -6,6 +6,7 @@ import { AppError } from "../utils/AppError.js";
 import {
   deactivateUser,
   listUsers,
+  toggleUserAccountStatus,
   updateUserByAdmin,
 } from "../services/userAdminService.js";
 
@@ -46,5 +47,15 @@ router.patch(
   })
 );
 router.all("/:userId/deactivate", methodNotAllowed("PATCH"));
+
+router.patch(
+  "/:userId/toggle-account",
+  ...adminOnly,
+  asyncHandler(async (req, res) => {
+    const user = await toggleUserAccountStatus(req.params.userId);
+    res.json({ user });
+  })
+);
+router.all("/:userId/toggle-account", methodNotAllowed("PATCH"));
 
 export default router;

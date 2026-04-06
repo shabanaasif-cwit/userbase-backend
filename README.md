@@ -11,7 +11,7 @@ npm install
 Copy `.env.example` to `.env` and set:
 
 - **`MONGODB_URI`** — local example: `mongodb://127.0.0.1:27017/userbase`
-- **`FRONTEND_ORIGIN`** — your SPA origin (CORS + refresh cookie); must match how you open the frontend (e.g. Vite `http://localhost:5173`)
+- **`FRONTEND_ORIGIN`** — your SPA origin (CORS + refresh cookie); must match how you open the frontend (e.g. Vite `http://localhost:3000`)
 - **`JWT_ACCESS_SECRET`** / **`JWT_REFRESH_SECRET`** — long random strings in production
 - **`ACCESS_TOKEN_TTL`** / **`REFRESH_TOKEN_TTL`** — optional (defaults `15m` / `7d`)
 - **`PORT`** — optional (default `3001`)
@@ -108,6 +108,7 @@ Full path-level response lists and request schemas live in **`GET /openapi.json`
 - `GET /api/users` — admin-only list/filter/search users (`page`, `limit`, `role`, `accountStatus`, `search`)
 - `PATCH /api/users/:userId` — admin-only update user `email`, `role`, or `accountStatus`
 - `PATCH /api/users/:userId/deactivate` — admin-only deactivate user account
+- `PATCH /api/users/:userId/toggle-account` — admin-only flip `accountStatus` between active and deactivated (one call for activate/deactivate UI)
 
 ## Testing flow (Scalar or manual)
 
