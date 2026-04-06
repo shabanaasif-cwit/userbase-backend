@@ -1,5 +1,6 @@
 import { AdminUser } from "../models/AdminUser.js";
 import { User } from "../models/User.js";
+import { assertNonEmptyEmailLocal } from "../utils/email.js";
 import { AppError } from "../utils/AppError.js";
 
 const ALLOWED_ROLES = ["user", "admin"];
@@ -91,6 +92,7 @@ export async function updateUserByAdmin(userId, body) {
     if (!email) {
       throw new AppError(400, "Email cannot be empty");
     }
+    assertNonEmptyEmailLocal(email);
     patch.email = email;
   }
 
@@ -160,6 +162,19 @@ export async function deactivateUser(userId) {
     throw new AppError(404, "User not found");
   }
   target.accountStatus = "deactivated";
+  await target.save();
+  return sanitizeUser(target);
+}
+
+export async function toggleUserAccountStatus(userId) {
+  const user = await User.findById(userId);
+  const admin = user ? null : await AdminUser.findById(userId);
+  const target = user ?? admin;
+  if (!target) {
+    throw new AppError(404, "User not found");
+  }
+  target.accountStatus =
+    target.accountStatus === "deactivated" ? "active" : "deactivated";
   await target.save();
   return sanitizeUser(target);
 }

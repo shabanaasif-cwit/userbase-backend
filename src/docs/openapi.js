@@ -810,5 +810,31 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/users/{userId}/toggle-account": {
+      patch: {
+        tags: ["Users"],
+        summary: "Admin: toggle user account active/deactivated",
+        description:
+          "Sets account to deactivated if currently active, or active if currently deactivated. Use for a single admin action (e.g. profile icon) instead of branching on accountStatus.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "userId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          200: {
+            description: "User account status toggled",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UserResponse" } } },
+          },
+          401: { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          403: { description: "Forbidden (admin only)", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+          404: { description: "User not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+        },
+      },
+    },
   },
 };
