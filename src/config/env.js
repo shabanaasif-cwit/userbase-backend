@@ -40,4 +40,5 @@ export const env = {
   JWT_REFRESH_SECRET: required("JWT_REFRESH_SECRET"),
   ACCESS_TOKEN_TTL: durationEnv("ACCESS_TOKEN_TTL", "15m"),
   REFRESH_TOKEN_TTL: durationEnv("REFRESH_TOKEN_TTL", "7d"),
+  ADMIN_KEY: required("ADMIN_KEY"),
 };
