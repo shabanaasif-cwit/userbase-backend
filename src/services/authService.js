@@ -30,6 +30,8 @@ function sanitizeUser(user) {
     email: user.email,
     role: user.role,
     accountStatus: user.accountStatus,
+    firstName: user.firstName,   // Add firstName
+    lastName: user.lastName,     // Add lastName
   };
 }
 
