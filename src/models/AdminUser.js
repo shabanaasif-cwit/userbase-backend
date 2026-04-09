@@ -16,12 +16,12 @@ const adminUserSchema = new mongoose.Schema(
     firstName: {
       type: String,
       trim: true,
-      default: null,
+      default: "",
     },
     lastName: {
       type: String,
       trim: true,
-      default: null,
+      default: "",
     },
     role: {
       type: String,
