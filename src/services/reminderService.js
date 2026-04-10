@@ -169,13 +169,16 @@ export async function listRemindersForViewer(query, viewer) {
   const docs = await Reminder.find(filter).sort({ createdAt: -1 });
 
   let filtered = docs;
-  if (viewer.role !== "admin" && (read === "true" || read === "false")) {
+  if (read === "true" || read === "false") {
     const shouldRead = read === "true";
     filtered = docs.filter((doc) => {
       const rec = doc.recipients.find(
         (r) => String(r.userId) === String(viewer.userId)
       );
-      return shouldRead ? Boolean(rec?.readAt) : !rec?.readAt;
+      if (!rec) {
+        return false;
+      }
+      return shouldRead ? Boolean(rec.readAt) : !rec.readAt;
     });
   }
 

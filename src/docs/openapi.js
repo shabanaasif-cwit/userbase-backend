@@ -689,7 +689,8 @@ export const openApiSpec = {
             name: "read",
             in: "query",
             schema: { type: "string", enum: ["true", "false"] },
-            description: "For non-admin users: filter by read state",
+            description:
+              "Filter by the authenticated user’s read state for reminders where they are a recipient (`true` = read, `false` = unread). Reminders that do not include the user in `recipients` are omitted when this parameter is set.",
           },
         ],
         responses: {
