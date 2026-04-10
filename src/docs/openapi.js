@@ -264,6 +264,11 @@ export const openApiSpec = {
             items: { type: "string", enum: ["user", "admin"] },
           },
           recipientsCount: { type: "number" },
+          isRecipient: {
+            type: "boolean",
+            description:
+              "Whether the authenticated user is in the reminder recipients list. Admins may list all reminders; use this to hide per-recipient actions (e.g. Mark read) when false.",
+          },
           myRead: { type: "boolean" },
           myReadAt: { type: "string", format: "date-time", nullable: true },
           createdBy: {

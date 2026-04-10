@@ -23,6 +23,7 @@ function sanitizeReminder(doc, viewerId) {
     targetUsers: (json.targetUsers ?? []).map((id) => String(id)),
     targetRoles: json.targetRoles ?? [],
     recipientsCount: json.recipients.length,
+    isRecipient: Boolean(myRecipient),
     myRead: Boolean(myRecipient?.readAt),
     myReadAt: myRecipient?.readAt ?? null,
     createdBy: {
@@ -139,7 +140,7 @@ export async function createReminderFromNotification(notificationId, body, actor
     },
   });
 
-  return sanitizeReminder(doc);
+  return sanitizeReminder(doc, actor.userId);
 }
 
 export async function listRemindersForViewer(query, viewer) {
@@ -206,16 +207,15 @@ export async function markReminderRead(reminderId, viewer) {
   const recipient = reminder.recipients.find(
     (r) => String(r.userId) === viewerIdStr
   );
+
   if (!recipient) {
-    throw new AppError(
-      403,
-      "Not a recipient of this reminder"
-    );
+    throw new AppError(403, "Not a recipient of this reminder");
   }
 
   if (!recipient.readAt) {
     recipient.readAt = new Date();
     await reminder.save();
   }
+
   return sanitizeReminder(reminder, viewerIdStr);
 }
