@@ -65,7 +65,30 @@ export async function signup(body) {
   const firstName = String(body?.firstName ?? "").trim();
   const lastName = String(body?.lastName ?? "").trim();
 
-  // ... (Existing validations for email, firstName, lastName, etc.)
+  if (password !== confirmPassword) {
+    throw new AppError(400, "Passwords do not match");
+  }
+  if (typeof password !== "string" || HAS_WHITESPACE.test(password)) {
+    throw new AppError(400, "Password must not contain spaces");
+  }
+  if (HAS_BACKTICK.test(password)) {
+    throw new AppError(400, "Password must not contain backticks (`)");
+  }
+  if (
+    password.length < MIN_PASSWORD_LENGTH ||
+    password.length > MAX_PASSWORD_LENGTH
+  ) {
+    throw new AppError(
+      400,
+      `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters`
+    );
+  }
+  if (!HAS_NUMBER.test(password) || !HAS_SPECIAL.test(password)) {
+    throw new AppError(
+      400,
+      "Password must include at least one number and one special character"
+    );
+  }
 
   if (!role) {
     throw new AppError(400, "Role is required");
@@ -83,7 +106,15 @@ export async function signup(body) {
       throw new AppError(401, "Invalid or missing Admin Secret Key");
     }
   }
-  
+
+  const [existingUser, existingAdmin] = await Promise.all([
+    User.findOne({ email }),
+    AdminUser.findOne({ email }),
+  ]);
+  if (existingUser || existingAdmin) {
+    throw new AppError(409, "Email already registered");
+  }
+
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
   let userDoc;
