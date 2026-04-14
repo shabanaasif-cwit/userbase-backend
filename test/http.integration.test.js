@@ -16,6 +16,8 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     process.env.JWT_REFRESH_SECRET = "b".repeat(32);
     process.env.FRONTEND_ORIGIN = "http://localhost:3000";
     process.env.NODE_ENV = "test";
+    process.env.ADMIN_KEY =
+      process.env.ADMIN_KEY?.trim() || "integration-test-admin-key";
 
     const { createApp } = await import("../src/app.js");
     const { connectMongo } = await import("../src/db/connect.js");
@@ -79,6 +81,46 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     expect(badLogin.body).toEqual({ error: "Invalid credentials" });
   });
 
+  it("auth: signup rejects duplicate email across user and admin", async () => {
+    const sharedEmail = "dup-identity@test.com";
+    const asUser = await request(app).post("/api/auth/signup").send({
+      email: sharedEmail,
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(asUser.status).toBe(201);
+
+    const duplicateAsAdmin = await request(app).post("/api/auth/signup").send({
+      email: sharedEmail,
+      password,
+      confirmPassword: password,
+      role: "admin",
+      adminKey: process.env.ADMIN_KEY,
+    });
+    expect(duplicateAsAdmin.status).toBe(409);
+    expect(duplicateAsAdmin.body.error).toMatch(/Email already registered/);
+
+    const adminEmail = "dup-identity-admin@test.com";
+    const asAdmin = await request(app).post("/api/auth/signup").send({
+      email: adminEmail,
+      password,
+      confirmPassword: password,
+      role: "admin",
+      adminKey: process.env.ADMIN_KEY,
+    });
+    expect(asAdmin.status).toBe(201);
+
+    const duplicateAsUser = await request(app).post("/api/auth/signup").send({
+      email: adminEmail,
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(duplicateAsUser.status).toBe(409);
+    expect(duplicateAsUser.body.error).toMatch(/Email already registered/);
+  });
+
   it("RBAC: regular user gets 403 on admin user list", async () => {
     const signup = await request(app).post("/api/auth/signup").send({
       email: "rbac-user@test.com",
@@ -101,6 +143,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     expect(signup.status).toBe(201);
 
@@ -118,6 +161,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     expect(adminSignup.status).toBe(201);
 
@@ -169,6 +213,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     expect(adminSignup.status).toBe(201);
     const adminToken = adminSignup.body.accessToken;
@@ -202,6 +247,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     expect(adminSignup.status).toBe(201);
     const adminToken = adminSignup.body.accessToken;
@@ -268,6 +314,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     expect(adminSignup.status).toBe(201);
     const adminToken = adminSignup.body.accessToken;
@@ -313,6 +360,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     expect(adminSignup.status).toBe(201);
     const adminToken = adminSignup.body.accessToken;
@@ -356,6 +404,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     expect(adminSignup.status).toBe(201);
     const adminToken = adminSignup.body.accessToken;
@@ -406,6 +455,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     const adminToken = adminSignup.body.accessToken;
     const userToken = userSignup.body.accessToken;
@@ -436,6 +486,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       password,
       confirmPassword: password,
       role: "admin",
+      adminKey: process.env.ADMIN_KEY,
     });
     const adminToken = adminSignup.body.accessToken;
     const userSignup = await request(app).post("/api/auth/signup").send({
