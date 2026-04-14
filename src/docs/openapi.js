@@ -46,6 +46,8 @@ export const openApiSpec = {
           },
           role: { type: "string", enum: ["user", "admin"] },
           accountStatus: { type: "string", enum: ["active", "deactivated"] },
+          firstName: { type: "string", example: "Jane" },
+          lastName: { type: "string", example: "Doe" },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
