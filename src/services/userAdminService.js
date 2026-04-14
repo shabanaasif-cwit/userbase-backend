@@ -12,6 +12,8 @@ function sanitizeUser(user) {
     email: user.email,
     role: user.role,
     accountStatus: user.accountStatus,
+    firstName: user.firstName,
+    lastName: user.lastName,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
