@@ -31,5 +31,9 @@ export function errorHandler(err, _req, res, _next) {
     console.error(e);
   }
 
-  res.status(statusCode).json({ error: message });
+  /** Used by request logging; same string as JSON `error` / `message`. */
+  res.locals.__clientErrorText = message;
+
+  /** `message` duplicates `error` so clients can show failures using either field. */
+  res.status(statusCode).json({ error: message, message });
 }

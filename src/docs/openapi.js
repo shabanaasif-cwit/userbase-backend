@@ -6,7 +6,7 @@ export const openApiSpec = {
     title: "userbase-backend API",
     version: "1.0.0",
     description:
-      "Authentication, user management (admin), notifications (admin broadcast + user list/read), and health endpoints for userbase-backend. Error responses are JSON objects `{ \"error\": string }`. Malformed JSON bodies return **400** with `error: \"Invalid JSON\"`. Admin-only routes return **403** with `error: \"Forbidden (admin only)\"` when the JWT role is insufficient.",
+      "Authentication, user management (admin), notifications (admin broadcast + user list/read), and health endpoints for userbase-backend. Error responses are JSON objects with `error` and duplicate `message` (same string) for UI display. Malformed JSON bodies return **400** with `error: \"Invalid JSON\"`. Admin-only routes return **403** with `error: \"Forbidden (admin only)\"` when the JWT role is insufficient.",
   },
   servers: [
     {
@@ -31,8 +31,14 @@ export const openApiSpec = {
     schemas: {
       ErrorResponse: {
         type: "object",
+        required: ["error", "message"],
         properties: {
           error: { type: "string", example: "Unauthorized" },
+          message: {
+            type: "string",
+            example: "Unauthorized",
+            description: "Same value as `error`; use whichever your UI expects.",
+          },
         },
       },
       User: {
@@ -142,6 +148,55 @@ export const openApiSpec = {
           ok: { type: "boolean", example: true },
           service: { type: "string", example: "userbase-backend" },
           db: { type: "string", example: "connected" },
+        },
+      },
+      StaticRouteResponse: {
+        type: "object",
+        description:
+          "Returned by GET /gallery, /contact, /about. Call these from the SPA when entering each route so API logs include the page path (in addition to e.g. /api/notifications).",
+        properties: {
+          kind: { type: "string", enum: ["static-route"] },
+          page: { type: "string", enum: ["gallery", "contact", "about"] },
+          title: { type: "string", example: "Gallery" },
+          status: { type: "string", enum: ["ok"] },
+        },
+      },
+      NavigationReportBody: {
+        type: "object",
+        required: ["path"],
+        description:
+          "Client-side route path after navigation. Use this because SPA navigations (static pages) do not otherwise send HTTP requests to the API.",
+        properties: {
+          path: {
+            type: "string",
+            example: "/about",
+            description: "App path, e.g. /gallery, /contact, /privacy. A leading slash is optional.",
+          },
+          title: {
+            type: "string",
+            example: "About",
+            description: "Optional human-readable page name for logs.",
+          },
+        },
+      },
+      ClientErrorReportBody: {
+        type: "object",
+        description:
+          "Optional fields from the browser (e.g. error boundary, window.onerror). Strings are truncated server-side when logged.",
+        properties: {
+          message: { type: "string", example: "Cannot read properties of undefined" },
+          name: { type: "string", example: "TypeError" },
+          stack: { type: "string" },
+          componentStack: { type: "string" },
+          filename: { type: "string" },
+          url: { type: "string", example: "http://localhost:3000/dashboard" },
+          source: { type: "string", example: "error-boundary" },
+          reason: { type: "string" },
+          digest: { type: "string" },
+          line: { type: "number" },
+          column: { type: "number" },
+          lineno: { type: "number" },
+          colno: { type: "number" },
         },
       },
       UpdateUserBody: {
@@ -335,6 +390,60 @@ export const openApiSpec = {
         },
       },
     },
+    "/gallery": {
+      get: {
+        tags: ["System"],
+        summary: "Static page ping (gallery)",
+        description:
+          "Optional: `fetch` this from the SPA when the user opens the Gallery route so server logs show `GET /gallery` (not only `/api/reminders` or `/api/notifications`).",
+        responses: {
+          200: {
+            description: "Page marker",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/StaticRouteResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/contact": {
+      get: {
+        tags: ["System"],
+        summary: "Static page ping (contact)",
+        description:
+          "Optional: call when the Contact route is active so access logs include this path.",
+        responses: {
+          200: {
+            description: "Page marker",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/StaticRouteResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/about": {
+      get: {
+        tags: ["System"],
+        summary: "Static page ping (about)",
+        description:
+          "Optional: call when the About route is active so access logs include this path.",
+        responses: {
+          200: {
+            description: "Page marker",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/StaticRouteResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
     "/health": {
       get: {
         tags: ["System"],
@@ -353,6 +462,64 @@ export const openApiSpec = {
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/HealthResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/client-errors": {
+      post: {
+        tags: ["System"],
+        summary: "Report a client-side (frontend) error for server logs",
+        description:
+          "Send browser or SPA errors here so they appear in the API server terminal as `[frontend-error]` logs. Fire-and-forget; response has no body.",
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ClientErrorReportBody" },
+            },
+          },
+        },
+        responses: {
+          204: {
+            description: "Logged; no response body",
+          },
+          400: {
+            description: "Malformed JSON body",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/navigation": {
+      post: {
+        tags: ["System"],
+        summary: "Log a client-side (SPA) navigation for server terminal output",
+        description:
+          "Single-page apps do not hit this API when users move between static routes (header/footer links). POST from the frontend on each route change (e.g. React Router) so the API process can log `[navigation]` lines and the usual request log for this call.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/NavigationReportBody" },
+            },
+          },
+        },
+        responses: {
+          204: {
+            description: "Logged; no response body",
+          },
+          400: {
+            description: "Missing or invalid path",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
               },
             },
           },

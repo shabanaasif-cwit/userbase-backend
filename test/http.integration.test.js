@@ -36,7 +36,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       .set("Content-Type", "application/json")
       .send("{");
     expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "Invalid JSON" });
+    expect(res.body).toEqual({ error: "Invalid JSON", message: "Invalid JSON" });
   });
 
   it("auth: signup rejects weak password with 400 and error message", async () => {
@@ -64,7 +64,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
 
     const meNoAuth = await request(app).get("/api/auth/me");
     expect(meNoAuth.status).toBe(401);
-    expect(meNoAuth.body).toEqual({ error: "Unauthorized" });
+    expect(meNoAuth.body).toEqual({ error: "Unauthorized", message: "Unauthorized" });
 
     const me = await request(app)
       .get("/api/auth/me")
@@ -78,7 +78,10 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       role: "user",
     });
     expect(badLogin.status).toBe(401);
-    expect(badLogin.body).toEqual({ error: "Invalid credentials" });
+    expect(badLogin.body).toEqual({
+      error: "Invalid credentials",
+      message: "Invalid credentials",
+    });
   });
 
   it("auth: signup rejects duplicate email across user and admin", async () => {
@@ -134,7 +137,10 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       .get("/api/users")
       .set("Authorization", `Bearer ${signup.body.accessToken}`);
     expect(list.status).toBe(403);
-    expect(list.body).toEqual({ error: "Forbidden (admin only)" });
+    expect(list.body).toEqual({
+      error: "Forbidden (admin only)",
+      message: "Forbidden (admin only)",
+    });
   });
 
   it("RBAC: admin can list users", async () => {
@@ -206,7 +212,10 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
         targetType: "user",
       });
     expect(forbidden.status).toBe(403);
-    expect(forbidden.body).toEqual({ error: "Forbidden (admin only)" });
+    expect(forbidden.body).toEqual({
+      error: "Forbidden (admin only)",
+      message: "Forbidden (admin only)",
+    });
 
     const adminSignup = await request(app).post("/api/auth/signup").send({
       email: "notif-admin@test.com",
@@ -477,7 +486,10 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       .set("Authorization", `Bearer ${userToken}`)
       .send({ title: "Nope" });
     expect(patch.status).toBe(403);
-    expect(patch.body).toEqual({ error: "Forbidden (admin only)" });
+    expect(patch.body).toEqual({
+      error: "Forbidden (admin only)",
+      message: "Forbidden (admin only)",
+    });
   });
 
   it("notifications: PATCH update rejects empty body object after validation keys", async () => {
@@ -514,5 +526,56 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       .send({ targetUsers: [userId] });
     expect(emptyPatch.status).toBe(400);
     expect(emptyPatch.body.error).toMatch(/No valid fields to update/);
+  });
+
+  it("client-errors: POST reports frontend error and returns 204", async () => {
+    const res = await request(app).post("/api/client-errors").send({
+      message: "Test client error",
+      stack: "at foo (bar.js:1:1)",
+      url: "http://localhost:3000/page",
+    });
+    expect(res.status).toBe(204);
+    expect(res.text).toBe("");
+  });
+
+  it("navigation: POST logs SPA route and returns 204; missing path is 400", async () => {
+    const ok = await request(app).post("/api/navigation").send({
+      path: "/about",
+      title: "About",
+    });
+    expect(ok.status).toBe(204);
+
+    const noPath = await request(app).post("/api/navigation").send({});
+    expect(noPath.status).toBe(400);
+    expect(noPath.body).toEqual({ error: "path is required", message: "path is required" });
+
+    const implicitSlash = await request(app).post("/api/navigation").send({
+      path: "gallery",
+    });
+    expect(implicitSlash.status).toBe(204);
+  });
+
+  it("static routes: GET /gallery, /contact, /about return page markers", async () => {
+    const gallery = await request(app).get("/gallery");
+    expect(gallery.status).toBe(200);
+    expect(gallery.body).toEqual({
+      kind: "static-route",
+      page: "gallery",
+      title: "Gallery",
+      status: "ok",
+    });
+
+    const contact = await request(app).get("/contact");
+    expect(contact.status).toBe(200);
+    expect(contact.body.page).toBe("contact");
+
+    const about = await request(app).get("/about");
+    expect(about.status).toBe(200);
+    expect(about.body).toEqual({
+      kind: "static-route",
+      page: "about",
+      title: "About",
+      status: "ok",
+    });
   });
 });
