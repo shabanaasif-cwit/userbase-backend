@@ -112,7 +112,7 @@ export async function signup(body) {
     AdminUser.findOne({ email }),
   ]);
   if (existingUser || existingAdmin) {
-    throw new AppError(409, "Email already registered");
+    throw new AppError(409, "That email is taken. Try another.");
   }
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -139,7 +139,7 @@ export async function signup(body) {
           });
   } catch (err) {
     if (err?.code === 11000) {
-      throw new AppError(409, "Email already registered");
+      throw new AppError(409, "That email is taken. Try another.");
     }
     throw err;
   }
@@ -150,19 +150,24 @@ export async function login(body) {
   let email = String(body?.email ?? "").trim().toLowerCase();
   const password = body?.password;
   const role = body?.role;
+
   if (email && !email.includes("@")) {
     email = `${email}@suybmol.com`;
   }
+
   if (!email || !password) {
     throw new AppError(400, "Email and password required");
   }
+
   assertNonEmptyEmailLocal(email);
+
   if (!HAS_TLD.test(email)) {
     throw new AppError(
       400,
       "Email must include a valid top-level domain(.com, .net, etc.)"
     );
   }
+
   const emailLocal = email.split("@")[0];
   if (emailLocal.length > MAX_EMAIL_LOCAL_LENGTH) {
     throw new AppError(
@@ -170,38 +175,54 @@ export async function login(body) {
       `User email before @ must be ${MAX_EMAIL_LOCAL_LENGTH} characters or fewer`
     );
   }
+
   if (!role) {
     throw new AppError(400, "Role is required");
   }
+
   if (!ALLOWED_ROLES.includes(role)) {
     throw new AppError(400, "Role must be user or admin");
   }
+
   if (typeof password !== "string" || HAS_WHITESPACE.test(password)) {
     throw new AppError(400, "Password must not contain spaces");
   }
+
   if (HAS_BACKTICK.test(password)) {
     throw new AppError(400, "Password must not contain backticks (`)");
   }
+
   if (!HAS_NUMBER.test(password) || !HAS_SPECIAL.test(password)) {
     throw new AppError(
       400,
       "Password must include at least one number and one special character"
     );
   }
-  const user =
-    role === "admin"
-      ? await AdminUser.findOne({ email })
-      : await User.findOne({ email });
+
+  const [normalUser, adminUser] = await Promise.all([
+    User.findOne({ email }),
+    AdminUser.findOne({ email }),
+  ]);
+
+  const user = normalUser ?? adminUser;
+
   if (!user?.passwordHash) {
     throw new AppError(401, "Invalid credentials");
   }
+
   const match = await bcrypt.compare(password, user.passwordHash);
   if (!match) {
     throw new AppError(401, "Invalid credentials");
   }
+
+  if (user.role !== role) {
+    throw new AppError(401, "Could not find the user with this role.");
+  }
+
   if (user.accountStatus !== "active") {
     throw new AppError(403, "Account deactivated");
   }
+
   return issueSession(user);
 }
 

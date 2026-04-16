@@ -57,7 +57,7 @@ export function uiInteractionLogger(req, res, next) {
         ? ` "${res.locals.__clientErrorText}"`
         : "";
     console.log(
-      `INFO: ${server} - "${requestLine}" ${res.statusCode} ${label}${errDetail} ${durationMs}ms`
+      `INFO: ${server} - ${requestLine} ${res.statusCode} ${label}${errDetail} ${durationMs}ms`
     );
 
     const authz = req.headers.authorization;
