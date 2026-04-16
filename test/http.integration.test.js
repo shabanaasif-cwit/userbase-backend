@@ -102,7 +102,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       adminKey: process.env.ADMIN_KEY,
     });
     expect(duplicateAsAdmin.status).toBe(409);
-    expect(duplicateAsAdmin.body.error).toMatch(/Email already registered/);
+    expect(duplicateAsAdmin.body.error).toMatch(/That email is taken. Try another./);
 
     const adminEmail = "dup-identity-admin@test.com";
     const asAdmin = await request(app).post("/api/auth/signup").send({

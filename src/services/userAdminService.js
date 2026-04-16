@@ -122,7 +122,7 @@ export async function updateUserByAdmin(userId, body) {
       AdminUser.findOne({ email: patch.email, _id: { $ne: userId } }),
     ]);
     if (u || a) {
-      throw new AppError(409, "Email already registered");
+      throw new AppError(409, "That email is taken. Try another.");
     }
   }
 
