@@ -64,7 +64,6 @@ export function createApp() {
   app.use("/api/navigation", navigationRoutes);
   app.use(staticPagesRoutes);
   app.use(routes);
-
   app.use(notFoundHandler);
   app.use(errorHandler);
 

@@ -27,24 +27,102 @@ function statusLabel(code) {
   return "OK";
 }
 
+/** Prefer `originalUrl` so auth paths match even when `req.path` differs (proxy / mount quirks). */
+function normalizedPathname(req) {
+  let raw = String(req.originalUrl ?? "").split("?")[0];
+  if (!raw) raw = String(req.url ?? "").split("?")[0];
+  if (!raw) raw = String(req.path ?? "");
+  while (raw.length > 1 && raw.endsWith("/")) {
+    raw = raw.slice(0, -1);
+  }
+  return raw;
+}
+
+function isAuthLoginPath(p) {
+  return p === "/api/auth/login" || p === "/auth/login";
+}
+
+export function isAuthSignupPath(p) {
+  return p === "/api/auth/signup" || p === "/auth/signup";
+}
+
+/** Mirrors `login()` order for early 400s so terminal still shows text if `__clientErrorText` is missing. */
+export function inferLoginValidationMessage(req) {
+  const body = req.body ?? {};
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const password = body.password;
+  if (email && !email.includes("@")) return "Missing @ symbol";
+  if (!email) return "Email is missing";
+  if (!password) return "Password is missing";
+  return "";
+}
+
+function inferSignupMissingAtMessage(req) {
+  const body = req.body ?? {};
+  const email = String(body.email ?? "").trim().toLowerCase();
+  if (email && !email.includes("@")) return "Missing @ symbol";
+  return "";
+}
+
+/** Matches PATCH /api/notifications/:id so logs match validation when __clientErrorText is unset. */
+function isNotificationUpdatePath(path) {
+  return /^\/api\/notifications\/[a-f0-9]{24}$/i.test(path);
+}
+
+/**
+ * Mirrors validateUpdateNotificationPayload: no title/body/targetType means no patch.
+ * Used when a 400 occurs but error middleware did not set __clientErrorText.
+ */
+export function inferNotificationPatchNoEffectiveFieldsMessage(req, path) {
+  if (!isNotificationUpdatePath(path)) return "";
+  const body = req.body ?? {};
+  const hasEffective =
+    Object.prototype.hasOwnProperty.call(body, "title") ||
+    Object.prototype.hasOwnProperty.call(body, "body") ||
+    Object.prototype.hasOwnProperty.call(body, "targetType");
+  if (!hasEffective) return "No fields are updated";
+  return "";
+}
+
 export function uiInteractionLogger(req, res, next) {
-  if (req.method === "GET" && req.path === "/health") {
+  const path = normalizedPathname(req);
+
+  if (req.method === "GET" && path === "/health") {
     next();
     return;
   }
 
-  const path = req.path;
   const server = serverEndpoint(req);
 
-  if (req.method === "POST" && path === "/api/auth/login" && req.body?.email) {
-    console.log(
-      `INFO: ${server} - [LOGIN] Attempting login for: ${req.body.email}`
-    );
+  if (req.method === "POST" && isAuthLoginPath(path)) {
+    const body = req.body ?? {};
+    const loginEmail = String(body.email ?? "").trim().toLowerCase();
+    const loginPassword = body.password;
+
+    if (!loginEmail) {
+      console.log(`INFO: ${server} - [LOGIN] Email is missing`);
+    } else {
+      console.log(
+        `INFO: ${server} - [LOGIN] Attempting login for: ${body.email}`
+      );
+      if (!loginEmail.includes("@")) {
+        console.log(`INFO: ${server} - [LOGIN] Missing @ symbol`);
+      } else if (!loginPassword) {
+        console.log(`INFO: ${server} - [LOGIN] Password is missing`);
+      }
+    }
   }
-  if (req.method === "POST" && path === "/api/auth/signup" && req.body?.email) {
-    console.log(
-      `INFO: ${server} - [SIGNUP] Attempting signup for: ${req.body.email}`
-    );
+  if (req.method === "POST" && isAuthSignupPath(path)) {
+    const body = req.body ?? {};
+    const signupEmail = String(body.email ?? "").trim().toLowerCase();
+    if (signupEmail) {
+      console.log(
+        `INFO: ${server} - [SIGNUP] Attempting signup for: ${body.email}`
+      );
+      if (!signupEmail.includes("@")) {
+        console.log(`INFO: ${server} - [SIGNUP] Missing @ symbol`);
+      }
+    }
   }
 
   const started = Date.now();
@@ -52,27 +130,38 @@ export function uiInteractionLogger(req, res, next) {
     const durationMs = Date.now() - started;
     const requestLine = `${req.method} ${req.originalUrl} HTTP`;
     const label = statusLabel(res.statusCode);
+
+    let clientErr = res.locals.__clientErrorText;
+    if (!clientErr && res.statusCode === 400) {
+      if (req.method === "POST") {
+        if (isAuthLoginPath(path)) {
+          clientErr = inferLoginValidationMessage(req);
+        } else if (isAuthSignupPath(path)) {
+          clientErr = inferSignupMissingAtMessage(req);
+        }
+      } else if (req.method === "PATCH") {
+        clientErr = inferNotificationPatchNoEffectiveFieldsMessage(req, path);
+      }
+    }
     const errDetail =
-      res.statusCode >= 400 && res.locals.__clientErrorText
-        ? ` "${res.locals.__clientErrorText}"`
-        : "";
-    console.log(
-      `INFO: ${server} - ${requestLine} ${res.statusCode} ${label}${errDetail} ${durationMs}ms`
-    );
+      res.statusCode >= 400 && clientErr ? ` "${clientErr}"` : "";
 
     const authz = req.headers.authorization;
     const hasBearer = typeof authz === "string" && authz.startsWith("Bearer ");
-
+    let jwtSuffix = "";
     if (hasBearer) {
       if (req.user) {
-        console.log(
-          `INFO: ${server} - [JWT] authenticated userId=${req.user.userId} role=${req.user.role} | ${req.method} ${path}`
-        );
+        jwtSuffix = ` [JWT userId=${req.user.userId} role=${req.user.role}]`;
       } else if (res.statusCode === 401) {
-        console.log(
-          `INFO: ${server} - [JWT] rejected or unauthorized | ${req.method} ${path}`
-        );
+        jwtSuffix = " [JWT unauthorized]";
       }
+    }
+
+    const accessLine = `INFO: ${server} - ${requestLine} ${res.statusCode} ${label}${errDetail} ${durationMs}ms${jwtSuffix}`;
+    if (res.statusCode >= 400) {
+      console.error(accessLine);
+    } else {
+      console.log(accessLine);
     }
 
     if (path === "/api/auth/login" && req.method === "POST" && res.statusCode === 200 && req.body?.email) {

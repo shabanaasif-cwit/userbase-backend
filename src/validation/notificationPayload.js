@@ -2,8 +2,6 @@ import { AppError } from "../utils/AppError.js";
 
 const TARGET_TYPES = ["users", "user", "admin", "all"];
 
-const UPDATE_KEYS = ["title", "body", "targetType", "targetUsers", "targetRoles"];
-
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -28,8 +26,14 @@ export function validateCreateNotificationPayload(body) {
   }
   const title = String(body.title ?? "").trim();
   const message = String(body.body ?? "").trim();
+  if (!title) {
+    throw new AppError(400, "title is required");
+  }
+  if (!message) {
+    throw new AppError(400, "message is required");
+  }
   if (!title || !message) {
-    throw new AppError(400, "title and body are required");
+    throw new AppError(400, "title and message are required");
   }
   if (!TARGET_TYPES.includes(body.targetType)) {
     throw new AppError(
@@ -53,11 +57,12 @@ export function validateUpdateNotificationPayload(body) {
   if (!isPlainObject(body)) {
     throw new AppError(400, "Request body must be a JSON object");
   }
-  const hasUpdatable = UPDATE_KEYS.some((k) =>
-    Object.prototype.hasOwnProperty.call(body, k)
-  );
-  if (!hasUpdatable) {
-    throw new AppError(400, "No valid fields to update");
+  const hasEffectiveUpdate =
+    Object.prototype.hasOwnProperty.call(body, "title") ||
+    Object.prototype.hasOwnProperty.call(body, "body") ||
+    Object.prototype.hasOwnProperty.call(body, "targetType");
+  if (!hasEffectiveUpdate) {
+    throw new AppError(400, "No fields are updated");
   }
   if (Object.prototype.hasOwnProperty.call(body, "title")) {
     if (body.title === null || typeof body.title !== "string") {
