@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { describe, expect, it, beforeAll, afterAll, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import request from "supertest";
@@ -79,8 +79,72 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     });
     expect(badLogin.status).toBe(401);
     expect(badLogin.body).toEqual({
-      error: "Invalid credentials",
-      message: "Invalid credentials",
+      error: "Wrong Password",
+      message: "Wrong Password",
+    });
+  });
+
+  it("auth: login with unknown email returns 401 Incorrect email", async () => {
+    const res = await request(app).post("/api/auth/login").send({
+      email: "nobody-exists-here@test.com",
+      password,
+      role: "user",
+    });
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({
+      error: "Incorrect email",
+      message: "Incorrect email",
+    });
+  });
+
+  it("auth: login with email missing @ returns 400 Missing @ symbol", async () => {
+    const res = await request(app).post("/api/auth/login").send({
+      email: "nousernameonly",
+      password,
+      role: "user",
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: "Missing @ symbol",
+      message: "Missing @ symbol",
+    });
+  });
+
+  it("auth: login with missing email returns 400 Email is missing", async () => {
+    const res = await request(app).post("/api/auth/login").send({
+      password,
+      role: "user",
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: "Email is missing",
+      message: "Email is missing",
+    });
+  });
+
+  it("auth: login with missing password returns 400 Password is missing", async () => {
+    const res = await request(app).post("/api/auth/login").send({
+      email: "someone@test.com",
+      role: "user",
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: "Password is missing",
+      message: "Password is missing",
+    });
+  });
+
+  it("auth: signup with email missing @ returns 400 Missing @ symbol", async () => {
+    const res = await request(app).post("/api/auth/signup").send({
+      email: "nousernameonly",
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: "Missing @ symbol",
+      message: "Missing @ symbol",
     });
   });
 
@@ -121,7 +185,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       role: "user",
     });
     expect(duplicateAsUser.status).toBe(409);
-    expect(duplicateAsUser.body.error).toMatch(/Email already registered/);
+    expect(duplicateAsUser.body.error).toMatch(/That email is taken. Try another./);
   });
 
   it("RBAC: regular user gets 403 on admin user list", async () => {
@@ -520,12 +584,28 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
       });
     const notificationId = created.body.notification.id;
 
-    const emptyPatch = await request(app)
-      .patch(`/api/notifications/${notificationId}`)
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({ targetUsers: [userId] });
-    expect(emptyPatch.status).toBe(400);
-    expect(emptyPatch.body.error).toMatch(/No valid fields to update/);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const emptyPatch = await request(app)
+        .patch(`/api/notifications/${notificationId}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ targetUsers: [userId] });
+      expect(emptyPatch.status).toBe(400);
+      expect(emptyPatch.body.error).toMatch(/No fields are updated/);
+
+      const errLines = errorSpy.mock.calls.map((args) => String(args[0]));
+      expect(
+        errLines.some(
+          (line) =>
+            line.includes("PATCH") &&
+            line.includes("/api/notifications/") &&
+            line.includes("400") &&
+            line.includes("No fields are updated")
+        )
+      ).toBe(true);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("client-errors: POST reports frontend error and returns 204", async () => {

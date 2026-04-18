@@ -41,7 +41,7 @@ describe("validateCreateNotificationPayload", () => {
         targetType: "users",
         targetUsers: ["507f1f77bcf86cd799439011"],
       })
-    ).toThrow(/title and body are required/);
+    ).toThrow(/title is required/);
     expect(() =>
       validateCreateNotificationPayload({
         title: "t",
@@ -49,7 +49,15 @@ describe("validateCreateNotificationPayload", () => {
         targetType: "users",
         targetUsers: ["507f1f77bcf86cd799439011"],
       })
-    ).toThrow(/title and body are required/);
+    ).toThrow(/message is required/);
+    expect(() =>
+      validateCreateNotificationPayload({
+        title: "",
+        body: "   ",
+        targetType: "users",
+        targetUsers: ["507f1f77bcf86cd799439011"],
+      })
+    ).toThrow(/title and message is required/);
     expect(() =>
       validateCreateNotificationPayload({
         title: "t",
@@ -89,13 +97,19 @@ describe("validateUpdateNotificationPayload", () => {
     );
   });
 
-  it("rejects when no supported keys", () => {
+  it("rejects when no fields are updated", () => {
     expect(() => validateUpdateNotificationPayload({})).toThrow(
-      /No valid fields to update/
+      /No fields are updated/
     );
     expect(() => validateUpdateNotificationPayload({ extra: 1 })).toThrow(
-      /No valid fields to update/
+      /No fields are updated/
     );
+    expect(() =>
+      validateUpdateNotificationPayload({ targetUsers: [] })
+    ).toThrow(/No fields are updated/);
+    expect(() =>
+      validateUpdateNotificationPayload({ targetRoles: [] })
+    ).toThrow(/No fields are updated/);
   });
 
   it("rejects invalid title/body/targetType", () => {

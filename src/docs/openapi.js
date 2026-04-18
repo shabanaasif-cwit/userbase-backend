@@ -555,7 +555,7 @@ export const openApiSpec = {
           },
           400: {
             description:
-              "Validation error or malformed JSON body (`error`: `Invalid JSON`)",
+              "Validation error, `Missing @ symbol` when email has no `@`, or malformed JSON (`error`: `Invalid JSON`)",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -596,7 +596,7 @@ export const openApiSpec = {
           },
           400: {
             description:
-              "Validation error or malformed JSON body (`error`: `Invalid JSON`)",
+              "Validation error, `Email is missing` / `Password is missing`, `Missing @ symbol` when email has no `@`, or malformed JSON (`error`: `Invalid JSON`)",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -604,7 +604,8 @@ export const openApiSpec = {
             },
           },
           401: {
-            description: "Invalid credentials",
+            description:
+              "`Incorrect email` (no account for that email), `Wrong Password` (password does not match), or wrong role",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },

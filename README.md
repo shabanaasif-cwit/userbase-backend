@@ -10,7 +10,7 @@ npm install
 
 Copy `.env.example` to `.env` and set:
 
-- **`MONGODB_URI`** — local example: `mongodb://127.0.0.1:27017/userbase`
+- **`MONGODB_URI`** — local example: `mongodb://127.0.0.1:3001/userbase`
 - **`FRONTEND_ORIGIN`** — your SPA origin (CORS + refresh cookie); must match how you open the frontend (e.g. Vite `http://localhost:3000`)
 - **`JWT_ACCESS_SECRET`** / **`JWT_REFRESH_SECRET`** — long random strings in production
 - **`ACCESS_TOKEN_TTL`** / **`REFRESH_TOKEN_TTL`** — optional (defaults `15m` / `7d`)

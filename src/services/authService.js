@@ -21,8 +21,27 @@ const HAS_BACKTICK = /`/;
 const HAS_NUMBER = /\d/;
 const HAS_SPECIAL = /[^A-Za-z0-9]/;
 const HAS_TLD = /^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/;
+/** Login/signup when password is missing a digit or special character (400). */
+const PASSWORD_NUMBER_SPECIAL_MESSAGE =
+  "Password must include at least one number and one special character";
+/** After format checks pass, bcrypt mismatch (401). */
+const WRONG_PASSWORD_MESSAGE = "Wrong Password";
+/** Email not registered (no matching user with password hash) (401). */
+const INVALID_EMAIL_MESSAGE = "Incorrect email";
+/** Email value is present but has no `@` (400). */
+const MISSING_AT_SYMBOL_MESSAGE = "Missing @ symbol";
+/** Login body: empty or absent email after trim (400). */
+const LOGIN_EMAIL_MISSING_MESSAGE = "Email is missing";
+/** Login body: empty or absent password (400). */
+const LOGIN_PASSWORD_MISSING_MESSAGE = "Password is missing";
 const MAX_EMAIL_LOCAL_LENGTH = 20;
 const STARTS_WITH_CAPITAL = /^[A-Z]/;
+
+function assertEmailHasAtSymbol(email) {
+  if (email && !email.includes("@")) {
+    throw new AppError(400, MISSING_AT_SYMBOL_MESSAGE);
+  }
+}
 
 function sanitizeUser(user) {
   return {
@@ -65,6 +84,8 @@ export async function signup(body) {
   const firstName = String(body?.firstName ?? "").trim();
   const lastName = String(body?.lastName ?? "").trim();
 
+  assertEmailHasAtSymbol(email);
+
   if (password !== confirmPassword) {
     throw new AppError(400, "Passwords do not match");
   }
@@ -84,10 +105,7 @@ export async function signup(body) {
     );
   }
   if (!HAS_NUMBER.test(password) || !HAS_SPECIAL.test(password)) {
-    throw new AppError(
-      400,
-      "Password must include at least one number and one special character"
-    );
+    throw new AppError(400, PASSWORD_NUMBER_SPECIAL_MESSAGE);
   }
 
   if (!role) {
@@ -151,12 +169,13 @@ export async function login(body) {
   const password = body?.password;
   const role = body?.role;
 
-  if (email && !email.includes("@")) {
-    email = `${email}@suybmol.com`;
-  }
+  assertEmailHasAtSymbol(email);
 
-  if (!email || !password) {
-    throw new AppError(400, "Email and password required");
+  if (!email) {
+    throw new AppError(400, LOGIN_EMAIL_MISSING_MESSAGE);
+  }
+  if (!password) {
+    throw new AppError(400, LOGIN_PASSWORD_MISSING_MESSAGE);
   }
 
   assertNonEmptyEmailLocal(email);
@@ -193,10 +212,7 @@ export async function login(body) {
   }
 
   if (!HAS_NUMBER.test(password) || !HAS_SPECIAL.test(password)) {
-    throw new AppError(
-      400,
-      "Password must include at least one number and one special character"
-    );
+    throw new AppError(400, PASSWORD_NUMBER_SPECIAL_MESSAGE);
   }
 
   const [normalUser, adminUser] = await Promise.all([
@@ -207,12 +223,21 @@ export async function login(body) {
   const user = normalUser ?? adminUser;
 
   if (!user?.passwordHash) {
-    throw new AppError(401, "Invalid credentials");
+    throw new AppError(401, INVALID_EMAIL_MESSAGE);
   }
 
   const match = await bcrypt.compare(password, user.passwordHash);
   if (!match) {
-    throw new AppError(401, "Invalid credentials");
+    if (password !== password.toLowerCase()) {
+      const lowerMatches = await bcrypt.compare(
+        password.toLowerCase(),
+        user.passwordHash
+      );
+      if (lowerMatches) {
+        console.warn("[auth/login] Possible capitalization mismatch");
+      }
+    }
+    throw new AppError(401, WRONG_PASSWORD_MESSAGE);
   }
 
   if (user.role !== role) {
