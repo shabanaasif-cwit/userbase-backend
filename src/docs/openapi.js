@@ -150,7 +150,7 @@ export const openApiSpec = {
           db: { type: "string", example: "connected" },
         },
       },
-      StaticRouteResponse: {
+     StaticRouteResponse: {
         type: "object",
         description:
           "Returned by GET /gallery, /contact, /about. Call these from the SPA when entering each route so API logs include the page path (in addition to e.g. /api/notifications).",
@@ -443,7 +443,7 @@ export const openApiSpec = {
           },
         },
       },
-    },
+    }, 
     "/health": {
       get: {
         tags: ["System"],

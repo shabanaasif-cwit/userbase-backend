@@ -84,6 +84,14 @@ export function inferNotificationPatchNoEffectiveFieldsMessage(req, path) {
   return "";
 }
 
+/** Keys present on PATCH body for admin notification edit (matches update payload shape). */
+function adminNotificationPatchFieldKeys(body) {
+  const b = body ?? {};
+  return ["title", "body", "targetType", "targetUsers", "targetRoles"].filter(
+    (k) => Object.prototype.hasOwnProperty.call(b, k)
+  );
+}
+
 export function uiInteractionLogger(req, res, next) {
   const path = normalizedPathname(req);
 
@@ -163,6 +171,78 @@ export function uiInteractionLogger(req, res, next) {
     } else {
       console.log(accessLine);
     }
+
+    /* ---- Notification Admin Actions ---- */
+    const notificationId = req.params?.notificationId;
+
+    if (path === "/api/notifications" && req.method === "POST") {
+      if (res.statusCode === 201) {
+        const createdId = res.locals.__adminNotificationCreatedId;
+        const body = req.body ?? {};
+        const title =
+          typeof body.title === "string"
+            ? body.title.trim().slice(0, 120).replace(/\s+/g, " ")
+            : "";
+        console.log(
+          `INFO: ${server} - [ADMIN_UI] Notification sent [notificationId=${createdId}] [title=${JSON.stringify(title)}] [targetType=${String(body.targetType ?? "")}]`
+        );
+      }
+    }
+
+    if (
+      /^\/api\/notifications\/[a-f0-9]{24}$/i.test(path) &&
+      req.method === "PATCH"
+    ) {
+      if (res.statusCode === 200) {
+        const changed = res.locals.__adminNotificationChangedFieldKeys;
+        if (Array.isArray(changed) && changed.length === 0) {
+          console.log(
+            `INFO: ${server} - [ADMIN_UI] Notification not updated (no data changes) [notificationId=${notificationId}]`
+          );
+        } else if (Array.isArray(changed) && changed.length > 0) {
+          console.log(
+            `INFO: ${server} - [ADMIN_UI] Notification Updated [notificationId=${notificationId}] [updatedFields=${changed.join(",")}]`
+          );
+        } else {
+          const updatedFields = adminNotificationPatchFieldKeys(req.body);
+          const fieldsPart =
+            updatedFields.length > 0
+              ? ` [updatedFields=${updatedFields.join(",")}]`
+              : " [updatedFields=no field is updated]";
+          console.log(
+            `INFO: ${server} - [ADMIN_UI] Notification Updated [notificationId=${notificationId}]${fieldsPart}`
+          );
+        }
+      }
+    }
+    
+    if (
+      /^\/api\/notifications\/[a-f0-9]{24}\/remind$/i.test(path) &&
+      req.method === "POST"
+      ) {
+        if (res.statusCode === 201) {
+          console.log(
+            `INFO: ${server} - [ADMIN_UI] Reminder Sent [notificationId=${notificationId}]`
+          );
+        }
+      }
+    
+    if (
+      /^\/api\/notifications\/[a-f0-9]{24}$/i.test(path) &&
+      req.method === "DELETE"
+    ) {
+      console.log(
+        `INFO: ${server} - [ADMIN_UI] Notification Delete Clicked [notificationId=${notificationId}]`
+      );
+    
+      if (res.statusCode === 204) {
+        console.log(
+          `INFO: ${server} - [ADMIN_UI] Notification Deleted [notificationId=${notificationId}]`
+        );
+      }
+    }
+
+     /* ---- Auth Actions ---- */
 
     if (path === "/api/auth/login" && req.method === "POST" && res.statusCode === 200 && req.body?.email) {
       console.log(`INFO: ${server} - [AUTH] User authenticated: ${req.body.email}`);
