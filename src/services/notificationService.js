@@ -97,6 +97,60 @@ function dedupeRecipients(recipients) {
   return Array.from(map.values());
 }
 
+function sortedIdStrings(ids) {
+  return [...(ids ?? [])].map((id) => String(id)).sort().join(",");
+}
+
+function sortedRoleStrings(roles) {
+  return [...(roles ?? [])].map(String).sort().join(",");
+}
+
+function recipientStateFingerprint(recs) {
+  return (recs ?? [])
+    .map((r) => {
+      const t = r.readAt ? new Date(r.readAt).getTime() : 0;
+      return `${String(r.userId)}:${t}`;
+    })
+    .sort()
+    .join("|");
+}
+
+/** Which notification fields differ from the DB after applying `patch` / new recipients (for admin UI logs). */
+function computeAdminNotificationChangedKeys(notification, body, patch, newRecipients) {
+  const changed = [];
+  if (body.title !== undefined && notification.title !== patch.title) {
+    changed.push("title");
+  }
+  if (body.body !== undefined && notification.body !== patch.body) {
+    changed.push("body");
+  }
+  if (body.targetType !== undefined) {
+    if (notification.targetType !== patch.targetType) {
+      changed.push("targetType");
+    }
+    if (sortedIdStrings(notification.targetUsers) !== sortedIdStrings(patch.targetUsers)) {
+      changed.push("targetUsers");
+    }
+    if (sortedRoleStrings(notification.targetRoles) !== sortedRoleStrings(patch.targetRoles)) {
+      changed.push("targetRoles");
+    }
+    const nextRecipientDocs = newRecipients
+      ? newRecipients.map((r) => ({
+          userId: r.userId,
+          role: r.role,
+          readAt: null,
+        }))
+      : notification.recipients;
+    if (
+      recipientStateFingerprint(notification.recipients) !==
+      recipientStateFingerprint(nextRecipientDocs)
+    ) {
+      changed.push("recipients");
+    }
+  }
+  return changed;
+}
+
 export async function createNotification(body, actor) {
   validateCreateNotificationPayload(body);
   const title = String(body.title).trim();
@@ -239,6 +293,13 @@ export async function updateNotification(notificationId, body) {
     throw new AppError(400, "No valid fields to update");
   }
 
+  const changedFieldKeys = computeAdminNotificationChangedKeys(
+    notification,
+    body,
+    patch,
+    recipients
+  );
+
   Object.assign(notification, patch);
   if (recipients) {
     notification.recipients = recipients.map((r) => ({
@@ -248,7 +309,10 @@ export async function updateNotification(notificationId, body) {
     }));
   }
   await notification.save();
-  return sanitizeNotification(notification);
+  return {
+    notification: sanitizeNotification(notification),
+    changedFieldKeys,
+  };
 }
 
 export async function deleteNotification(notificationId) {

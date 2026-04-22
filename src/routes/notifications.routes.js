@@ -33,6 +33,7 @@ router.post(
   ...adminOnly,
   asyncHandler(async (req, res) => {
     const notification = await createNotification(req.body ?? {}, req.user);
+    res.locals.__adminNotificationCreatedId = notification.id;
     res.status(201).json({ notification });
   })
 );
@@ -42,10 +43,11 @@ router.patch(
   "/:notificationId",
   ...adminOnly,
   asyncHandler(async (req, res) => {
-    const notification = await updateNotification(
+    const { notification, changedFieldKeys } = await updateNotification(
       req.params.notificationId,
       req.body ?? {}
     );
+    res.locals.__adminNotificationChangedFieldKeys = changedFieldKeys;
     res.json({ notification });
   })
 );
