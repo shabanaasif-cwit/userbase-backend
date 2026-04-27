@@ -231,17 +231,12 @@ export function uiInteractionLogger(req, res, next) {
       /^\/api\/notifications\/[a-f0-9]{24}$/i.test(path) &&
       req.method === "DELETE"
     ) {
-      console.log(
-        `INFO: ${server} - [ADMIN_UI] Notification Delete Clicked [notificationId=${notificationId}]`
-      );
-    
       if (res.statusCode === 204) {
         console.log(
           `INFO: ${server} - [ADMIN_UI] Notification Deleted [notificationId=${notificationId}]`
         );
       }
     }
-
      /* ---- Auth Actions ---- */
 
     if (path === "/api/auth/login" && req.method === "POST" && res.statusCode === 200 && req.body?.email) {

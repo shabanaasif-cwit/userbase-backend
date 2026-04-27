@@ -10,7 +10,6 @@ import usersRoutes from "./routes/users.routes.js";
 import routes from "./routes/index.js";
 import clientErrorsRoutes from "./routes/clientErrors.routes.js";
 import navigationRoutes from "./routes/navigation.routes.js";
-import staticPagesRoutes from "./routes/staticPages.routes.js";
 import { env } from "./config/env.js";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler.js";
 import { uiInteractionLogger } from "./middleware/uiInteractionLogger.js";
@@ -62,7 +61,6 @@ export function createApp() {
   app.use("/api/users", usersRoutes);
   app.use("/api/client-errors", clientErrorsRoutes);
   app.use("/api/navigation", navigationRoutes);
-  app.use(staticPagesRoutes);
   app.use(routes);
   app.use(notFoundHandler);
   app.use(errorHandler);
