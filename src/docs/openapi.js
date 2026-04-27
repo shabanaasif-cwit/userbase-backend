@@ -150,17 +150,6 @@ export const openApiSpec = {
           db: { type: "string", example: "connected" },
         },
       },
-     StaticRouteResponse: {
-        type: "object",
-        description:
-          "Returned by GET /gallery, /contact, /about. Call these from the SPA when entering each route so API logs include the page path (in addition to e.g. /api/notifications).",
-        properties: {
-          kind: { type: "string", enum: ["static-route"] },
-          page: { type: "string", enum: ["gallery", "contact", "about"] },
-          title: { type: "string", example: "Gallery" },
-          status: { type: "string", enum: ["ok"] },
-        },
-      },
       NavigationReportBody: {
         type: "object",
         required: ["path"],
@@ -169,12 +158,12 @@ export const openApiSpec = {
         properties: {
           path: {
             type: "string",
-            example: "/about",
-            description: "App path, e.g. /gallery, /contact, /privacy. A leading slash is optional.",
+            example: "/dashboard",
+            description: "App path, e.g. /dashboard, /settings, /privacy. A leading slash is optional.",
           },
           title: {
             type: "string",
-            example: "About",
+            example: "Dashboard",
             description: "Optional human-readable page name for logs.",
           },
         },
@@ -390,60 +379,6 @@ export const openApiSpec = {
         },
       },
     },
-    "/gallery": {
-      get: {
-        tags: ["System"],
-        summary: "Static page ping (gallery)",
-        description:
-          "Optional: `fetch` this from the SPA when the user opens the Gallery route so server logs show `GET /gallery` (not only `/api/reminders` or `/api/notifications`).",
-        responses: {
-          200: {
-            description: "Page marker",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/StaticRouteResponse" },
-              },
-            },
-          },
-        },
-      },
-    },
-    "/contact": {
-      get: {
-        tags: ["System"],
-        summary: "Static page ping (contact)",
-        description:
-          "Optional: call when the Contact route is active so access logs include this path.",
-        responses: {
-          200: {
-            description: "Page marker",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/StaticRouteResponse" },
-              },
-            },
-          },
-        },
-      },
-    },
-    "/about": {
-      get: {
-        tags: ["System"],
-        summary: "Static page ping (about)",
-        description:
-          "Optional: call when the About route is active so access logs include this path.",
-        responses: {
-          200: {
-            description: "Page marker",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/StaticRouteResponse" },
-              },
-            },
-          },
-        },
-      },
-    }, 
     "/health": {
       get: {
         tags: ["System"],

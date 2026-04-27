@@ -620,8 +620,8 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
 
   it("navigation: POST logs SPA route and returns 204; missing path is 400", async () => {
     const ok = await request(app).post("/api/navigation").send({
-      path: "/about",
-      title: "About",
+      path: "/dashboard",
+      title: "Dashboard",
     });
     expect(ok.status).toBe(204);
 
@@ -630,32 +630,8 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     expect(noPath.body).toEqual({ error: "path is required", message: "path is required" });
 
     const implicitSlash = await request(app).post("/api/navigation").send({
-      path: "gallery",
+      path: "settings",
     });
     expect(implicitSlash.status).toBe(204);
-  });
-
-  it("static routes: GET /gallery, /contact, /about return page markers", async () => {
-    const gallery = await request(app).get("/gallery");
-    expect(gallery.status).toBe(200);
-    expect(gallery.body).toEqual({
-      kind: "static-route",
-      page: "gallery",
-      title: "Gallery",
-      status: "ok",
-    });
-
-    const contact = await request(app).get("/contact");
-    expect(contact.status).toBe(200);
-    expect(contact.body.page).toBe("contact");
-
-    const about = await request(app).get("/about");
-    expect(about.status).toBe(200);
-    expect(about.body).toEqual({
-      kind: "static-route",
-      page: "about",
-      title: "About",
-      status: "ok",
-    });
   });
 });
