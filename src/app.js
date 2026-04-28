@@ -14,6 +14,7 @@ import { env } from "./config/env.js";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler.js";
 import { uiInteractionLogger } from "./middleware/uiInteractionLogger.js";
 import { openApiSpec } from "./docs/openapi.js";
+import { ACCESS_TOKEN_RENEWAL_HEADER } from "./middleware/verifyJwt.js";
 
 export function createApp() {
   const app = express();
@@ -39,6 +40,7 @@ export function createApp() {
     cors({
       origin: env.FRONTEND_ORIGIN,
       credentials: true,
+      exposedHeaders: [ACCESS_TOKEN_RENEWAL_HEADER],
     })
   );
   app.use(express.json());

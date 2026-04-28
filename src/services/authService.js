@@ -34,6 +34,8 @@ const MISSING_AT_SYMBOL_MESSAGE = "Missing @ symbol";
 const LOGIN_EMAIL_MISSING_MESSAGE = "Email is missing";
 /** Login body: empty or absent password (400). */
 const LOGIN_PASSWORD_MISSING_MESSAGE = "Password is missing";
+/** Valid refresh session already exists; login from another client is rejected (409). */
+const SESSION_ALREADY_LOGGED_IN_MESSAGE = "Session is already logged in.";
 const MAX_EMAIL_LOCAL_LENGTH = 20;
 const STARTS_WITH_CAPITAL = /^[A-Z]/;
 
@@ -41,6 +43,38 @@ function assertEmailHasAtSymbol(email) {
   if (email && !email.includes("@")) {
     throw new AppError(400, MISSING_AT_SYMBOL_MESSAGE);
   }
+}
+
+async function hasActiveRefreshSession(userId) {
+  const doc = await RefreshToken.findOne({
+    userId,
+    revokedAt: null,
+    expiresAt: { $gt: new Date() },
+  })
+    .select("_id")
+    .lean();
+  return Boolean(doc);
+}
+
+/** True when the cookie is a non-revoked refresh JWT for this user (same browser as existing session). */
+async function cookieMatchesActiveSession(refreshTokenFromCookie, userId) {
+  if (!refreshTokenFromCookie) return false;
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshTokenFromCookie);
+  } catch {
+    return false;
+  }
+  if (payload.sub !== userId.toString()) return false;
+  const doc = await RefreshToken.findOne({
+    jti: payload.jti,
+    userId,
+    revokedAt: null,
+    expiresAt: { $gt: new Date() },
+  })
+    .select("_id")
+    .lean();
+  return Boolean(doc);
 }
 
 function sanitizeUser(user) {
@@ -164,7 +198,7 @@ export async function signup(body) {
   return issueSession(userDoc);
 }
 
-export async function login(body) {
+export async function login(body, refreshTokenFromCookie) {
   let email = String(body?.email ?? "").trim().toLowerCase();
   const password = body?.password;
   const role = body?.role;
@@ -246,6 +280,20 @@ export async function login(body) {
 
   if (user.accountStatus !== "active") {
     throw new AppError(403, "Account deactivated");
+  }
+
+  if (await hasActiveRefreshSession(user._id)) {
+    const sameBrowser = await cookieMatchesActiveSession(
+      refreshTokenFromCookie,
+      user._id
+    );
+    if (!sameBrowser) {
+      throw new AppError(409, SESSION_ALREADY_LOGGED_IN_MESSAGE);
+    }
+    await RefreshToken.updateMany(
+      { userId: user._id, revokedAt: null },
+      { $set: { revokedAt: new Date() } }
+    );
   }
 
   return issueSession(user);

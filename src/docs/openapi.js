@@ -555,6 +555,15 @@ export const openApiSpec = {
               },
             },
           },
+          409: {
+            description:
+              "An active refresh session exists and this request did not send that user’s valid `refreshToken` cookie (typical second browser / device). Same browser: send cookies (`credentials: 'include'`) so login can replace the session; or call logout on the other client first.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
         },
       },
     },

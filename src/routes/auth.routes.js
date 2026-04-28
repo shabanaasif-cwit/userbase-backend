@@ -9,6 +9,7 @@ import {
   clearRefreshCookie,
 } from "../utils/authCookies.js";
 
+//this is used to create a new express router.
 const router = Router();
 const methodNotAllowed = (allowed) => (req, res, next) => {
   res.set("Allow", allowed);
@@ -31,7 +32,8 @@ router.post(
   "/login",
   asyncHandler(async (req, res) => {
     const { user, accessToken, refreshToken } = await authService.login(
-      req.body ?? {}
+      req.body ?? {},
+      req.cookies[REFRESH_COOKIE_NAME]
     );
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
     res.json({ user, accessToken });
