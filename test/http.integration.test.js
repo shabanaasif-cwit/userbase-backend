@@ -84,6 +84,49 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     });
   });
 
+  it("auth: second login without refresh cookie while session active returns 409", async () => {
+    const email = "user-single-session@test.com";
+    const signup = await request(app).post("/api/auth/signup").send({
+      email,
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(signup.status).toBe(201);
+
+    const secondLogin = await request(app).post("/api/auth/login").send({
+      email,
+      password,
+      role: "user",
+    });
+    expect(secondLogin.status).toBe(409);
+    expect(secondLogin.body).toEqual({
+      error: "Session is already logged in.",
+      message: "Session is already logged in.",
+    });
+  });
+
+  it("auth: login again with same cookie after signup succeeds (same browser)", async () => {
+    const email = "same-browser@test.com";
+    const agent = request.agent(app);
+    const signup = await agent.post("/api/auth/signup").send({
+      email,
+      password,
+      confirmPassword: password,
+      role: "user",
+    });
+    expect(signup.status).toBe(201);
+
+    const again = await agent.post("/api/auth/login").send({
+      email,
+      password,
+      role: "user",
+    });
+    expect(again.status).toBe(200);
+    expect(again.body.accessToken).toBeTruthy();
+    expect(again.body.user.email).toBe(email);
+  });
+
   it("auth: login with unknown email returns 401 Incorrect email", async () => {
     const res = await request(app).post("/api/auth/login").send({
       email: "nobody-exists-here@test.com",
