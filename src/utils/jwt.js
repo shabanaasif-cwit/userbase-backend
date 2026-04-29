@@ -10,12 +10,16 @@ export function signAccessToken({ userId, role }) {
   );
 }
 
-export function signRefreshToken({ userId }) {
+export function signRefreshToken({
+  userId,
+  expiresIn = env.REFRESH_TOKEN_TTL,
+  rememberMe = false,
+}) {
   const jti = randomUUID();
   const token = jwt.sign(
-    { sub: userId, jti, typ: "refresh" },
+    { sub: userId, jti, typ: "refresh", rm: rememberMe ? 1 : 0 },
     env.JWT_REFRESH_SECRET,
-    { expiresIn: env.REFRESH_TOKEN_TTL }
+    { expiresIn }
   );
   return { token, jti };
 }

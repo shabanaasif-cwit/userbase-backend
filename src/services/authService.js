@@ -88,15 +88,24 @@ function sanitizeUser(user) {
   };
 }
 
-async function issueSession(user) {
+function refreshTokenTtlFor(rememberMe) {
+  return rememberMe
+    ? env.REMEMBER_ME_REFRESH_TOKEN_TTL
+    : env.REFRESH_TOKEN_TTL;
+}
+
+async function issueSession(user, rememberMe = false) {
+  const refreshTokenTtl = refreshTokenTtlFor(rememberMe);
   const accessToken = signAccessToken({
     userId: user._id.toString(),
     role: user.role,
   });
   const { token: refreshToken, jti } = signRefreshToken({
     userId: user._id.toString(),
+    expiresIn: refreshTokenTtl,
+    rememberMe,
   });
-  const expiresAt = new Date(Date.now() + ms(env.REFRESH_TOKEN_TTL));
+  const expiresAt = new Date(Date.now() + ms(refreshTokenTtl));
   await RefreshToken.create({
     userId: user._id,
     jti,
@@ -106,6 +115,7 @@ async function issueSession(user) {
     user: sanitizeUser(user),
     accessToken,
     refreshToken,
+    refreshTokenTtl,
   };
 }
 
@@ -202,6 +212,7 @@ export async function login(body, refreshTokenFromCookie) {
   let email = String(body?.email ?? "").trim().toLowerCase();
   const password = body?.password;
   const role = body?.role;
+  const rememberMe = body?.rememberMe === true;
 
   assertEmailHasAtSymbol(email);
 
@@ -296,7 +307,7 @@ export async function login(body, refreshTokenFromCookie) {
     );
   }
 
-  return issueSession(user);
+  return issueSession(user, rememberMe);
 }
 
 export async function refresh(refreshTokenFromCookie) {
@@ -326,24 +337,7 @@ export async function refresh(refreshTokenFromCookie) {
   }
   doc.revokedAt = new Date();
   await doc.save();
-  const accessToken = signAccessToken({
-    userId: user._id.toString(),
-    role: user.role,
-  });
-  const { token: refreshToken, jti } = signRefreshToken({
-    userId: user._id.toString(),
-  });
-  const expiresAt = new Date(Date.now() + ms(env.REFRESH_TOKEN_TTL));
-  await RefreshToken.create({
-    userId: user._id,
-    jti,
-    expiresAt,
-  });
-  return {
-    user: sanitizeUser(user),
-    accessToken,
-    refreshToken,
-  };
+  return issueSession(user, payload.rm === 1);
 }
 
 export async function logout(refreshTokenFromCookie) {

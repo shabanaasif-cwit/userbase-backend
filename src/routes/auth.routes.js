@@ -19,10 +19,15 @@ const methodNotAllowed = (allowed) => (req, res, next) => {
 router.post(
   "/signup",
   asyncHandler(async (req, res) => {
-    const { user, accessToken, refreshToken } = await authService.signup(
+    const { user, accessToken, refreshToken, refreshTokenTtl } =
+      await authService.signup(
       req.body ?? {}
     );
-    res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
+    res.cookie(
+      REFRESH_COOKIE_NAME,
+      refreshToken,
+      refreshCookieOptions(refreshTokenTtl)
+    );
     res.status(201).json({ user, accessToken });
   })
 );
@@ -31,11 +36,13 @@ router.all("/signup", methodNotAllowed("POST"));
 router.post(
   "/login",
   asyncHandler(async (req, res) => {
-    const { user, accessToken, refreshToken } = await authService.login(
-      req.body ?? {},
-      req.cookies[REFRESH_COOKIE_NAME]
+    const { user, accessToken, refreshToken, refreshTokenTtl } =
+      await authService.login(req.body ?? {}, req.cookies[REFRESH_COOKIE_NAME]);
+    res.cookie(
+      REFRESH_COOKIE_NAME,
+      refreshToken,
+      refreshCookieOptions(refreshTokenTtl)
     );
-    res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
     res.json({ user, accessToken });
   })
 );
@@ -45,9 +52,13 @@ router.post(
   "/refresh",
   asyncHandler(async (req, res) => {
     const token = req.cookies[REFRESH_COOKIE_NAME];
-    const { user, accessToken, refreshToken } =
+    const { user, accessToken, refreshToken, refreshTokenTtl } =
       await authService.refresh(token);
-    res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
+    res.cookie(
+      REFRESH_COOKIE_NAME,
+      refreshToken,
+      refreshCookieOptions(refreshTokenTtl)
+    );
     res.json({ user, accessToken });
   })
 );
