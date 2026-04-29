@@ -14,7 +14,7 @@ function durationEnv(envKey, fallback) {
   const n = ms(value);
   if (!Number.isFinite(n) || n <= 0) {
     throw new Error(
-      `${envKey} must be a valid positive duration (e.g. 15m, 1h, 7d)`
+      `${envKey} must be a valid positive duration (e.g. 15m, 1h, 1d)`
     );
   }
   return value;
@@ -39,6 +39,10 @@ export const env = {
   JWT_ACCESS_SECRET: required("JWT_ACCESS_SECRET"),
   JWT_REFRESH_SECRET: required("JWT_REFRESH_SECRET"),
   ACCESS_TOKEN_TTL: durationEnv("ACCESS_TOKEN_TTL", "15m"),
-  REFRESH_TOKEN_TTL: durationEnv("REFRESH_TOKEN_TTL", "7d"),
+  REFRESH_TOKEN_TTL: durationEnv("REFRESH_TOKEN_TTL", "1d"),
+  REMEMBER_ME_REFRESH_TOKEN_TTL: durationEnv(
+    "REMEMBER_ME_REFRESH_TOKEN_TTL",
+    "7d"
+  ),
   ADMIN_KEY: required("ADMIN_KEY"),
 };

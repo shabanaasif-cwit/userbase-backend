@@ -3,13 +3,13 @@ import { env } from "../config/env.js";
 
 export const REFRESH_COOKIE_NAME = "refreshToken";
 
-export function refreshCookieOptions() {
+export function refreshCookieOptions(refreshTokenTtl = env.REFRESH_TOKEN_TTL) {
   return {
     httpOnly: true,
     secure: env.isProduction,
     sameSite: "lax",
     path: "/api/auth",
-    maxAge: ms(env.REFRESH_TOKEN_TTL),
+    maxAge: ms(refreshTokenTtl),
   };
 }
 
