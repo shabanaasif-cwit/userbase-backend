@@ -8,16 +8,26 @@ export function refreshCookieOptions(refreshTokenTtl = env.REFRESH_TOKEN_TTL) {
     httpOnly: true,
     secure: env.isProduction,
     sameSite: "lax",
-    path: "/api/auth",
+    // Keep refresh cookie available on protected API routes for silent recovery.
+    path: "/",
     maxAge: ms(refreshTokenTtl),
   };
 }
 
 export function clearRefreshCookie(res) {
-  res.clearCookie(REFRESH_COOKIE_NAME, {
+  const baseOptions = {
     httpOnly: true,
     secure: env.isProduction,
     sameSite: "lax",
+  };
+  // Clear current cookie path.
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    ...baseOptions,
+    path: "/",
+  });
+  // Backward-compat: clear old cookie path used previously.
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    ...baseOptions,
     path: "/api/auth",
   });
 }
