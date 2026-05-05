@@ -6,6 +6,7 @@ import {
   listRemindersForViewer,
   markReminderRead,
 } from "../services/reminderService.js";
+import { emitReminderRead } from "../realtime/socketHub.js";
 
 const router = Router();
 
@@ -29,6 +30,7 @@ router.patch(
   verifyJwt,
   asyncHandler(async (req, res) => {
     const reminder = await markReminderRead(req.params.reminderId, req.user);
+    emitReminderRead(req.user.userId, reminder);
     res.json({ reminder });
   })
 );

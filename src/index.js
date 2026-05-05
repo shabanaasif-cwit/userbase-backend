@@ -1,7 +1,9 @@
 import "dotenv/config";
+import { createServer } from "node:http";
 import { env } from "./config/env.js";
 import { connectMongo, disconnectMongo } from "./db/connect.js";
 import { createApp } from "./app.js";
+import { initSocketServer } from "./realtime/socketHub.js";
 
 let server;
 let shuttingDown = false;
@@ -24,7 +26,9 @@ async function shutdown(signal) {
 async function main() {
   await connectMongo();
   const app = createApp();
-  server = app.listen(env.PORT, () => {
+  const httpServer = createServer(app);
+  initSocketServer(httpServer);
+  server = httpServer.listen(env.PORT, () => {
     console.log(`Server listening on http://localhost:${env.PORT}`);
   });
 

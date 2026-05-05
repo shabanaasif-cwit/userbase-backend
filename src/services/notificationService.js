@@ -88,7 +88,7 @@ async function resolveRecipients(targetType, targetUsers, targetRoles) {
 
   throw new AppError(400, "targetType must be users, user, admin, or all");
 }
-
+//dedupeRecipients is a function that removes duplicate recipients from the recipients array
 function dedupeRecipients(recipients) {
   const map = new Map();
   for (const recipient of recipients) {
@@ -104,8 +104,8 @@ function sortedIdStrings(ids) {
 function sortedRoleStrings(roles) {
   return [...(roles ?? [])].map(String).sort().join(",");
 }
-
-function recipientStateFingerprint(recs) {
+//small helper that turns the recipients array into one string that can be used to compare the state of the recipients
+export function recipientStateFingerprint(recs) {
   return (recs ?? [])
     .map((r) => {
       const t = r.readAt ? new Date(r.readAt).getTime() : 0;
@@ -320,6 +320,7 @@ export async function deleteNotification(notificationId) {
   if (!deleted) {
     throw new AppError(404, "Notification not found");
   }
+  return sanitizeNotification(deleted, null);
 }
 
 export async function markNotificationRead(notificationId, viewer) {

@@ -11,6 +11,13 @@ import {
   updateNotification,
 } from "../services/notificationService.js";
 import { createReminderFromNotification } from "../services/reminderService.js";
+import {
+  emitNotificationCreated,
+  emitNotificationDeleted,
+  emitNotificationRead,
+  emitNotificationUpdated,
+  emitReminderCreated,
+} from "../realtime/socketHub.js";
 
 const router = Router();
 const adminOnly = [verifyJwt, requireRole("admin")];
@@ -33,6 +40,7 @@ router.post(
   ...adminOnly,
   asyncHandler(async (req, res) => {
     const notification = await createNotification(req.body ?? {}, req.user);
+    emitNotificationCreated(notification);
     res.locals.__adminNotificationCreatedId = notification.id;
     res.status(201).json({ notification });
   })
@@ -47,6 +55,7 @@ router.patch(
       req.params.notificationId,
       req.body ?? {}
     );
+    emitNotificationUpdated(notification);
     res.locals.__adminNotificationChangedFieldKeys = changedFieldKeys;
     res.json({ notification });
   })
@@ -55,7 +64,8 @@ router.delete(
   "/:notificationId",
   ...adminOnly,
   asyncHandler(async (req, res) => {
-    await deleteNotification(req.params.notificationId);
+    const notification = await deleteNotification(req.params.notificationId);
+    emitNotificationDeleted(notification);
     res.status(204).send();
   })
 );
@@ -70,6 +80,7 @@ router.post(
       req.body,
       req.user
     );
+    emitReminderCreated(reminder);
     res.status(201).json({ reminder });
   })
 );
@@ -83,6 +94,7 @@ router.patch(
       req.params.notificationId,
       req.user
     );
+    emitNotificationRead(req.user.userId, notification);
     res.json({ notification });
   })
 );
