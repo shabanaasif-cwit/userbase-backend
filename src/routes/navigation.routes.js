@@ -14,10 +14,6 @@ function normalizePath(raw) {
   return withSlash.length > MAX_PATH ? withSlash.slice(0, MAX_PATH) : withSlash;
 }
 
-/**
- * SPA static routes (e.g. /about, /gallery) do not trigger HTTP requests to this API by themselves.
- * The frontend should POST here on each client-side navigation so the server terminal can log visits.
- */
 router.post(
   "/",
   asyncHandler(async (req, res) => {

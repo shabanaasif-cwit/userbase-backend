@@ -3,6 +3,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const router = Router();
 
+//MAX_STRING is the maximum length of a string in the payload e.g 8000 characters
 const MAX_STRING = 8000;
 
 function truncate(str) {
@@ -23,6 +24,7 @@ function buildReportPayload(body, req) {
     userAgent: req.get("user-agent") ?? null,
   };
 
+  //stringKeys is an array of keys that are strings in the body object
   const stringKeys = [
     "message",
     "name",
@@ -35,6 +37,7 @@ function buildReportPayload(body, req) {
     "digest",
   ];
   for (const key of stringKeys) {
+    //v is the value of the key in the body object
     const v = body[key];
     if (v != null && typeof v === "string") {
       out[key] = truncate(v);
