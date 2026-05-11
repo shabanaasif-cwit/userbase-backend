@@ -41,6 +41,8 @@ function emitByTarget(targetType, targetUsers, targetRoles, eventName, payload) 
     return;
   }
 
+  //ioInstance is the main Socket.IO server object.
+  //used to send events from backend to connected users.
   for (const role of targetRoles ?? []) {
     ioInstance.to(roleRoom(role)).emit(eventName, payload);
   }
@@ -70,6 +72,7 @@ export function initSocketServer(httpServer) {
     },
   });
 
+  //authecation middleware to verify the token and attach the user data to the socket.
   ioInstance.use((socket, next) => {
     const token = extractBearerToken(socket);
     if (!token) {

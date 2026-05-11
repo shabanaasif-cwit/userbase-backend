@@ -19,11 +19,15 @@ export async function connectMongo() {
     Reminder.syncIndexes(),
     RefreshToken.syncIndexes(),
   ]);
+  // log the database connection status in console
+  console.log("[DB] Database Connected");
 }
 
 //async lets the function wait for that operation properly
 export async function disconnectMongo() {
   await mongoose.disconnect();
+  // log the database disconnection status in console
+  console.log("[DB] Database Disconnected ");
 }
 
 /** `1` = connected (see Mongoose connection `readyState`). */

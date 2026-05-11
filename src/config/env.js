@@ -14,7 +14,7 @@ function durationEnv(envKey, fallback) {
   const n = ms(value);
   if (!Number.isFinite(n) || n <= 0) {
     throw new Error(
-      `${envKey} must be a valid positive duration (e.g. 15m, 1h, 1d)`
+      `${envKey} must be a valid positive duration (e.g. 15m, 1d, 7d)`
     );
   }
   return value;
