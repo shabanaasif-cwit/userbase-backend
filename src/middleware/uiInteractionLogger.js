@@ -92,6 +92,35 @@ function adminNotificationPatchFieldKeys(body) {
   );
 }
 
+function safePayloadForLogging(req) {
+  const method = String(req.method ?? "").toUpperCase();
+  if (method !== "POST" && method !== "PATCH") return null;
+
+  const body = req.body;
+  if (!body || typeof body !== "object") return null;
+
+  // Keep behavior stable: only redact obvious secrets. 
+  //we use the clone to hide the sensitive data for logging not change the original body
+  const clone = Array.isArray(body) ? [...body] : { ...body };
+  if (!Array.isArray(clone)) {
+    if (Object.prototype.hasOwnProperty.call(clone, "password")) {
+      //redact means to hide sensitive data before sending it to the console
+      clone.password = "[REDACTED]";
+    }
+    if (Object.prototype.hasOwnProperty.call(clone, "token")) {
+      clone.token = "[REDACTED]";
+    }
+    if (Object.prototype.hasOwnProperty.call(clone, "accessToken")) {
+      clone.accessToken = "[REDACTED]";
+    }
+    if (Object.prototype.hasOwnProperty.call(clone, "refreshToken")) {
+      clone.refreshToken = "[REDACTED]";
+    }
+  }
+
+  return clone;
+}
+
 export function uiInteractionLogger(req, res, next) {
   const path = normalizedPathname(req);
 
@@ -110,9 +139,7 @@ export function uiInteractionLogger(req, res, next) {
     if (!loginEmail) {
       console.log(`INFO: ${server} - [LOGIN] Email is missing`);
     } else {
-      console.log(
-        `INFO: ${server} - [LOGIN] Attempting login for: ${body.email}`
-      );
+      console.log(`INFO: ${server} - [LOGIN] Attempting login for: ${body.email}`);
       if (!loginEmail.includes("@")) {
         console.log(`INFO: ${server} - [LOGIN] Missing @ symbol`);
       } else if (!loginPassword) {
@@ -172,6 +199,11 @@ export function uiInteractionLogger(req, res, next) {
       console.log(accessLine);
     }
 
+    const payload = safePayloadForLogging(req);
+    if (payload) {
+      console.log(`INFO: ${server} - ${req.method} ${path} payload=${JSON.stringify(payload)}`);
+    }
+
     /* ---- Notification Admin Actions ---- */
     const notificationId = req.params?.notificationId;
 
@@ -209,8 +241,7 @@ export function uiInteractionLogger(req, res, next) {
             updatedFields.length > 0
               ? ` [updatedFields=${updatedFields.join(",")}]`
               : " [updatedFields=no field is updated]";
-          console.log(
-            `INFO: ${server} - [ADMIN_UI] Notification Updated [notificationId=${notificationId}]${fieldsPart}`
+          console.log(`INFO: ${server} - [ADMIN_UI] Notification Updated [notificationId=${notificationId}]${fieldsPart}`
           );
         }
       }
@@ -221,8 +252,7 @@ export function uiInteractionLogger(req, res, next) {
       req.method === "POST"
       ) {
         if (res.statusCode === 201) {
-          console.log(
-            `INFO: ${server} - [ADMIN_UI] Reminder Sent [notificationId=${notificationId}]`
+          console.log(`INFO: ${server} - [ADMIN_UI] Reminder Sent [notificationId=${notificationId}]`
           );
         }
       }
@@ -232,8 +262,7 @@ export function uiInteractionLogger(req, res, next) {
       req.method === "DELETE"
     ) {
       if (res.statusCode === 204) {
-        console.log(
-          `INFO: ${server} - [ADMIN_UI] Notification Deleted [notificationId=${notificationId}]`
+        console.log(`INFO: ${server} - [ADMIN_UI] Notification Deleted [notificationId=${notificationId}]`
         );
       }
     }
