@@ -97,6 +97,12 @@ export async function signup(body) {
   if (!ALLOWED_ROLES.includes(role)) {
     throw new AppError(400, "Role must be user or admin");
   }
+  if (role === "admin" && env.ADMIN_SIGNUP_KEY) {
+    const providedKey = String(body?.adminKey ?? "").trim();
+    if (providedKey !== env.ADMIN_SIGNUP_KEY) {
+      throw new AppError(403, "Admin signup key is required");
+    }
+  }
   if (
     typeof password !== "string" ||
     password.length < MIN_PASSWORD_LENGTH ||

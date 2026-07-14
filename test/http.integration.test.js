@@ -16,6 +16,7 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     process.env.JWT_REFRESH_SECRET = "b".repeat(32);
     process.env.FRONTEND_ORIGIN = "http://localhost:3000";
     process.env.NODE_ENV = "test";
+    process.env.ADMIN_SIGNUP_KEY = "test-admin-key";
 
     const { createApp } = await import("../src/app.js");
     const { connectMongo } = await import("../src/db/connect.js");
@@ -47,6 +48,27 @@ describe.sequential("HTTP integration (auth, RBAC, users, notifications)", () =>
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty("error");
     expect(typeof res.body.error).toBe("string");
+  });
+
+  it("auth: admin signup requires the configured admin key", async () => {
+    const missingKey = await request(app).post("/api/auth/signup").send({
+      email: "admin-no-key@test.com",
+      password,
+      confirmPassword: password,
+      role: "admin",
+    });
+    expect(missingKey.status).toBe(403);
+    expect(missingKey.body.error).toMatch(/admin signup key/i);
+
+    const validKey = await request(app).post("/api/auth/signup").send({
+      email: "admin-with-key@test.com",
+      password,
+      confirmPassword: password,
+      role: "admin",
+      adminKey: "test-admin-key",
+    });
+    expect(validKey.status).toBe(201);
+    expect(validKey.body.user.role).toBe("admin");
   });
 
   it("auth: signup, me with bearer, login, wrong password 401", async () => {

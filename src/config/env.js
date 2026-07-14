@@ -35,6 +35,7 @@ export const env = {
   MONGODB_URI: required("MONGODB_URI"),
   /** Browser origin for CORS + future httpOnly refresh cookies (no wildcard with credentials). */
   FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN?.trim() || "http://localhost:3000",
+  ADMIN_SIGNUP_KEY: process.env.ADMIN_SIGNUP_KEY?.trim() || "",
 
   JWT_ACCESS_SECRET: required("JWT_ACCESS_SECRET"),
   JWT_REFRESH_SECRET: required("JWT_REFRESH_SECRET"),
